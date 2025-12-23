@@ -1,0 +1,8 @@
+Flask
+selenium
+webdriver-manager
+Pillow
+reportlab
+beautifulsoup4
+python-telegram-bot
+requests

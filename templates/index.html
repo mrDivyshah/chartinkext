@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chartink PDF Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Chartink Screener to PDF</h1>
+            <p>Generate PDF charts from your Chartink screener results instantly.</p>
+        </header>
+
+        <main>
+            <form id="chartForm">
+                <div class="form-group">
+                    <label for="screener_url">Screener URL</label>
+                    <input type="url" id="screener_url" name="screener_url"
+                        placeholder="https://chartink.com/screener/..." required
+                        value="https://chartink.com/screener/copy-idea-krishchess-combo-mbsanghavi">
+                </div>
+
+                <div class="row">
+                    <div class="form-group col">
+                        <label for="range">Range</label>
+                        <select id="range" name="range">
+                            <option value="Daily">Daily</option>
+                            <option value="Weekly" selected>Weekly</option>
+                            <option value="Monthly">Monthly</option>
+                            <option value="1 Minute">1 Minute</option>
+                            <option value="2 Minute">2 Minute</option>
+                            <option value="3 Minute">3 Minute</option>
+                            <option value="5 Minute">5 Minute</option>
+                            <option value="10 Minute">10 Minute</option>
+                            <option value="15 Minute">15 Minute</option>
+                            <option value="20 Minute">20 Minute</option>
+                            <option value="25 Minute">25 Minute</option>
+                            <option value="30 Minute">30 Minute</option>
+                            <option value="45 Minute">45 Minute</option>
+                            <option value="75 Minute">75 Minute</option>
+                            <option value="125 Minute">125 Minute</option>
+                            <option value="1 hour">1 hour</option>
+                            <option value="2 hour">2 hour</option>
+                            <option value="3 hour">3 hour</option>
+                            <option value="4 hour">4 hour</option>
+                        </select>
+                    </div>
+                    <div class="form-group col">
+                        <label for="period">Period</label>
+                        <select id="period" name="period">
+                            <option value="1 day">1 day</option>
+                            <option value="2 days">2 days</option>
+                            <option value="3 days">3 days</option>
+                            <option value="5 days">5 days</option>
+                            <option value="10 days">10 days</option>
+                            <option value="1 month">1 month</option>
+                            <option value="2 months">2 months</option>
+                            <option value="3 months">3 months</option>
+                            <option value="4 months">4 months</option>
+                            <option value="6 months">6 months</option>
+                            <option value="9 months">9 months</option>
+                            <option value="1 year" selected>1 year</option>
+                            <option value="2 years">2 years</option>
+                            <option value="3 years">3 years</option>
+                            <option value="5 years">5 years</option>
+                            <option value="8 years">8 years</option>
+                            <option value="All Data">All Data</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="enable_ma" name="enable_ma">
+                    <label for="enable_ma">Enable Moving Averages</label>
+                </div>
+
+                <div id="ma-settings" class="hidden">
+                    <h3>Moving Averages</h3>
+                    <div class="ma-rows">
+                        <!-- Repeated blocks for MA 1-5 -->
+                        <div class="ma-row" data-index="0">
+                            <div class="ma-check">
+                                <input type="checkbox" id="ma1_enabled" checked>
+                                <label for="ma1_enabled">MA 1</label>
+                            </div>
+                            <select class="ma-select">
+                                <option value="open">Open</option>
+                                <option value="High">High</option>
+                                <option value="Low">Low</option>
+                                <option value="Close" selected>Close</option>
+                            </select>
+                            <select class="ma-type">
+                                <option value="Simple" selected>Simple</option>
+                                <option value="Exponential">Exponential</option>
+                                <option value="Weighted">Weighted</option>
+                                <option value="Triangular">Triangular</option>
+                            </select>
+                            <input type="number" class="ma-number" value="21">
+                        </div>
+
+                        <div class="ma-row" data-index="1">
+                            <div class="ma-check">
+                                <input type="checkbox" id="ma2_enabled" checked>
+                                <label for="ma2_enabled">MA 2</label>
+                            </div>
+                            <select class="ma-select">
+                                <option value="open">Open</option>
+                                <option value="High">High</option>
+                                <option value="Low">Low</option>
+                                <option value="Close" selected>Close</option>
+                            </select>
+                            <select class="ma-type">
+                                <option value="Simple" selected>Simple</option>
+                                <option value="Exponential">Exponential</option>
+                                <option value="Weighted">Weighted</option>
+                                <option value="Triangular">Triangular</option>
+                            </select>
+                            <input type="number" class="ma-number" value="10">
+                        </div>
+
+                        <div class="ma-row" data-index="2">
+                            <div class="ma-check">
+                                <input type="checkbox" id="ma3_enabled">
+                                <label for="ma3_enabled">MA 3</label>
+                            </div>
+                            <select class="ma-select">
+                                <option value="open">Open</option>
+                                <option value="High">High</option>
+                                <option value="Low">Low</option>
+                                <option value="Close" selected>Close</option>
+                            </select>
+                            <select class="ma-type">
+                                <option value="Simple" selected>Simple</option>
+                                <option value="Exponential">Exponential</option>
+                                <option value="Weighted">Weighted</option>
+                                <option value="Triangular">Triangular</option>
+                            </select>
+                            <input type="number" class="ma-number" value="15">
+                        </div>
+
+                        <div class="ma-row" data-index="3">
+                            <div class="ma-check">
+                                <input type="checkbox" id="ma4_enabled">
+                                <label for="ma4_enabled">MA 4</label>
+                            </div>
+                            <select class="ma-select">
+                                <option value="open">Open</option>
+                                <option value="High">High</option>
+                                <option value="Low">Low</option>
+                                <option value="Close" selected>Close</option>
+                            </select>
+                            <select class="ma-type">
+                                <option value="Simple" selected>Simple</option>
+                                <option value="Exponential">Exponential</option>
+                                <option value="Weighted">Weighted</option>
+                                <option value="Triangular">Triangular</option>
+                            </select>
+                            <input type="number" class="ma-number" value="20">
+                        </div>
+
+                        <div class="ma-row" data-index="4">
+                            <div class="ma-check">
+                                <input type="checkbox" id="ma5_enabled">
+                                <label for="ma5_enabled">MA 5</label>
+                            </div>
+                            <select class="ma-select">
+                                <option value="open">Open</option>
+                                <option value="High">High</option>
+                                <option value="Low">Low</option>
+                                <option value="Close" selected>Close</option>
+                            </select>
+                            <select class="ma-type">
+                                <option value="Simple" selected>Simple</option>
+                                <option value="Exponential">Exponential</option>
+                                <option value="Weighted">Weighted</option>
+                                <option value="Triangular">Triangular</option>
+                            </select>
+                            <input type="number" class="ma-number" value="28">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button type="submit" id="submitBtn">
+                        <span class="btn-text">Generate PDF</span>
+                        <div class="spinner hidden"></div>
+                    </button>
+                </div>
+            </form>
+
+            <div id="statusMessage" class="status-message hidden">
+                <p id="statusText">Starting...</p>
+                <div class="progress-container">
+                    <div id="progressBar" class="progress-bar"></div>
+                </div>
+                <p id="detailText" class="detail-text"></p>
+            </div>
+            <div id="errorContainer" class="error-container hidden">
+                <p class="error-text"></p>
+            </div>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+
+</html>

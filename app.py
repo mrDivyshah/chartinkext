@@ -39,6 +39,13 @@ def web_driver():
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
 
+    # Automatically enable headless in Docker/Production
+    if os.path.exists('/.dockerenv') or os.environ.get('HEADLESS', 'false').lower() == 'true':
+        options.add_argument('--headless')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--no-sandbox')
+        print("Running in Headless mode (Docker/Env detected)")
+
     try:
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=options)

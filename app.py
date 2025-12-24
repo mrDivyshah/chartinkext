@@ -106,30 +106,58 @@ def get_url_and_index(driver):
                     if full_link not in results and full_link not in page_links:
                          page_links.append(full_link)
             
-            if not page_links:
-                print("No links found on this page.")
-                break
-                
+            # Check for empty scrape on subsequent pages
+            if not page_links and results:
+                print("No unique links found on this page. Retrying or moving to next...")
+
             results.extend(page_links)
             print(f"Found {len(page_links)} links on this page. Total: {len(results)}")
 
-            # Pagination handling
+            # --- Pagination Logic ---
             try:
-                # Try finding the Next button. DataTables usually has an ID or class.
-                next_button = driver.find_elements(By.XPATH, "//a[contains(text(), 'Next')]")
-                if not next_button:
-                     next_button = driver.find_elements(By.ID, 'DataTables_Table_0_next')
+                # 1. Capture the "Primary Key" of the current page (First Stock Name)
+                # This helps us confirm the page actually changed.
+                current_first_stock = ""
+                try:
+                    first_row_link = driver.find_element(By.XPATH, "//table[contains(@id, 'DataTables_Table')]//tbody//tr[1]//a[contains(@href, 'fundamentals')]")
+                    current_first_stock = first_row_link.text
+                except:
+                    pass
+
+                # 2. Find Next button
+                # The HTML shows it's a <button> containing a <span>Next</span>
+                # XPath: //button[contains(., 'Next')] or //button[.//span[contains(text(), 'Next')]]
+                next_buttons = driver.find_elements(By.XPATH, "//button[contains(., 'Next')]")
                 
-                if next_button:
-                    btn = next_button[0]
-                    classes = btn.get_attribute('class')
-                    if 'disabled' in classes:
+                if next_buttons:
+                    btn = next_buttons[0]
+                    # Check if disabled by checking 'disabled' attribute directly on the button
+                    if btn.get_attribute('disabled') is not None:
                         print("Next button disabled. End of pages.")
                         break
                     
+                    # Click Next
+                    print("Clicking Next button...")
                     driver.execute_script("arguments[0].scrollIntoView(true);", btn)
                     driver.execute_script("arguments[0].click();", btn)
-                    time.sleep(3) # Wait for next page load
+                    
+                    # 3. Wait for TABLE content to update (Robust Way)
+                    print(f"Waiting for table update... (Previous first stock: {current_first_stock})")
+                    try:
+                        if current_first_stock:
+                             WebDriverWait(driver, 20).until(
+                                lambda d: d.find_element(By.XPATH, "//table[contains(@id, 'DataTables_Table')]//tbody//tr[1]//a[contains(@href, 'fundamentals')]").text != current_first_stock
+                            )
+                        else:
+                            # Fallback if we couldn't read the first stock
+                             time.sleep(5)
+                    except Exception as e:
+                        print(f"Table update wait timed out or failed: {e}. Attempting to scrape anyway.")
+                        pass
+                    
+                    # Extra buffer for all rows to render
+                    time.sleep(2)
+
                 else:
                     print("Next button not found. Assuming single page.")
                     break
@@ -244,36 +272,45 @@ def get_image_from_link(driver, url, timeframe, s_range, form_data, retries=3):
 
 def generate_pdf(data):
     buffer = BytesIO()
+    # Start with A4, but we will adjust per page
     c = canvas.Canvas(buffer, pagesize=A4)
-    a4_width, a4_height = A4
-    page_height = a4_height
+    
+    # Standard A4 width for consistency (595.27 points)
+    # We will use this width but adjust height dynamically
+    page_width = A4[0] 
 
     for item in data:
         company_name = item['company_name']
         image = item['image']
         
-        page_width = a4_width
-        img_width, img_height = image.size
-        aspect_ratio = img_height / img_width
-        
-        scaled_width = page_width - 40 
-        scaled_height = scaled_width * aspect_ratio
-        
-        if scaled_height > (page_height - 100):
-            scaled_height = page_height - 100
-            scaled_width = scaled_height / aspect_ratio
-
         img_buffer = BytesIO()
         image.save(img_buffer, format='PNG')
         img_buffer.seek(0)
         
-        x = (page_width - scaled_width) / 2
-        y = (page_height - scaled_height) / 2 
+        # Calculate dimensions
+        # Used width = Page Width - Margins (e.g. 20px on each side)
+        margin = 20
+        draw_width = page_width - (margin * 2)
         
+        img_width, img_height = image.size
+        aspect_ratio = img_height / img_width
+        
+        draw_height = draw_width * aspect_ratio
+        
+        # Calculate required page height:
+        # Top margin for Title (approx 50pts) + Image Height + Bottom Margin (20pts)
+        total_page_height = 50 + draw_height + 20
+        
+        # Set the page size for this specific page
+        c.setPageSize((page_width, total_page_height))
+        
+        # Draw Title (Centered at top)
         c.setFont("Helvetica-Bold", 16)
-        c.drawCentredString(page_width / 2, page_height - 50, company_name)
+        c.drawCentredString(page_width / 2, total_page_height - 35, company_name)
         
-        c.drawImage(ImageReader(img_buffer), x, y, width=scaled_width, height=scaled_height)
+        # Draw Image (Centered horizontally, just below title)
+        c.drawImage(ImageReader(img_buffer), margin, 20, width=draw_width, height=draw_height)
+        
         c.showPage()
 
     c.save()

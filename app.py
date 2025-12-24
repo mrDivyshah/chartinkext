@@ -39,7 +39,28 @@ def web_driver():
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
 
-    # Automatically enable headless in Docker/Production
+    # Check for PythonAnywhere environment
+    if 'PYTHONANYWHERE_DOMAIN' in os.environ:
+        options.add_argument('--headless')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        # Based on your error log, the browser is here:
+        options.binary_location = "/usr/bin/chromium"
+        
+        print("Running on PythonAnywhere: Using system Chromium and ChromeDriver")
+        
+        # Use the system-installed chromedriver directly
+        try:
+            service = Service("/usr/bin/chromedriver")
+            driver = webdriver.Chrome(service=service, options=options)
+            return driver
+        except Exception as e:
+            print(f"Failed to use system chromedriver: {e}")
+            # Fallback to normal flow if this fails
+            pass
+
+    # Automatically enable headless in Docker/Production (Non-PythonAnywhere)
     if os.path.exists('/.dockerenv') or os.environ.get('HEADLESS', 'false').lower() == 'true':
         options.add_argument('--headless=new') # Use new headless mode
         options.add_argument('--disable-gpu')

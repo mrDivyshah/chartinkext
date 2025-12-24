@@ -1,8 +1,5 @@
 import threading
 import uuid
-from flask import Flask, render_template, request, send_file, jsonify, after_this_request
-
-# ... imports ... same as before
 import os
 import json
 import time
@@ -10,6 +7,13 @@ import base64
 import requests
 from io import BytesIO
 from datetime import datetime
+import asyncio
+
+from flask import Flask, render_template, request, send_file, jsonify, redirect, url_for, flash
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+
 from PIL import Image as PILImage
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
@@ -19,19 +23,63 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait, Select
+from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
+from telegram import Bot
 
+# --- Configuration ---
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your-secret-key-change-this-in-production' # Change this!
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///chartink_app.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+# --- Models ---
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(150), unique=True, nullable=False)
+    password_hash = db.Column(db.String(150), nullable=False)
+    telegram_bot_token = db.Column(db.String(200), nullable=True)
+    telegram_chat_id = db.Column(db.String(100), nullable=True)
+    presets = db.relationship('ScanPreset', backref='owner', lazy=True)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+class ScanPreset(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.String(500), nullable=True)
+    url = db.Column(db.String(1000), nullable=False)
+    # Storing last used settings for this preset
+    period = db.Column(db.String(50), default='weekly')
+    range_val = db.Column(db.String(50), default='1 year')
+    moving_average = db.Column(db.Boolean, default=True) # Deprecated
+    ma_config = db.Column(db.Text, nullable=True) # Stores JSON string
+
+# --- Global Job Store (In-Memory) ---
 jobs = {}
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# --- Helper Functions ---
 
 def web_driver():
     options = webdriver.ChromeOptions()
+    options.page_load_strategy = 'eager' # Don't wait for full page load (images, css)
     options.add_argument("--verbose")
     options.add_argument('--no-sandbox')
-    # options.add_argument('--headless') # Disabled for debugging
     options.add_argument('--disable-gpu')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
@@ -42,34 +90,21 @@ def web_driver():
     # Check for PythonAnywhere environment
     if 'PYTHONANYWHERE_DOMAIN' in os.environ:
         options.add_argument('--headless')
-        options.add_argument('--disable-gpu')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        # Based on your error log, the browser is here:
         options.binary_location = "/usr/bin/chromium"
-        
-        print("Running on PythonAnywhere: Using system Chromium and ChromeDriver")
-        
-        # Use the system-installed chromedriver directly
         try:
             service = Service("/usr/bin/chromedriver")
             driver = webdriver.Chrome(service=service, options=options)
             return driver
         except Exception as e:
             print(f"Failed to use system chromedriver: {e}")
-            # Fallback to normal flow if this fails
             pass
 
-    # Automatically enable headless in Docker/Production (Non-PythonAnywhere)
+    # Docker / Local Headless
     if os.path.exists('/.dockerenv') or os.environ.get('HEADLESS', 'false').lower() == 'true':
-        options.add_argument('--headless=new') # Use new headless mode
-        options.add_argument('--disable-gpu')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--headless=new')
         options.add_argument('--window-size=1920,1080')
         options.add_argument('--remote-debugging-port=9222')
         options.add_argument('--disable-extensions')
-        # options.binary_location = "/usr/bin/google-chrome" # Let Selenium find it in PATH
         print("Running in Headless mode (Docker/Env detected)")
 
     try:
@@ -80,21 +115,24 @@ def web_driver():
         print(f"Error setting up driver: {e}")
         raise e
 
+async def send_telegram_pdf(token, chat_id, pdf_bytes, filename):
+    try:
+        bot = Bot(token=token)
+        await bot.send_document(chat_id=chat_id, document=pdf_bytes, filename=filename, caption="Here is your Chartink Scan PDF.")
+    except Exception as e:
+        print(f"Telegram Error: {e}")
+
 def get_url_and_index(driver):
     results = []
-    index = 1
+    # Logic from previous robust implementation
     while True:
         try:
-            # Wait for the Stock results to load by checking for the header
+            # Wait for table
             WebDriverWait(driver, 60).until(
                 EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Stock Name')]"))
             )
-            time.sleep(2) # Allow render to settle
 
             soup = BeautifulSoup(driver.page_source, 'html.parser')
-            
-            # Find all links that point to fundamentals (F.A links)
-            # The structure is usually class="text-teal-700" or similar, but href is reliable
             links = soup.find_all('a', href=True)
             page_links = []
             for link in links:
@@ -102,21 +140,18 @@ def get_url_and_index(driver):
                 if 'fundamentals' in href:
                     href = href.replace('fundamentals', 'stocks')
                     full_link = f"https://chartink.com{href}"
-                    # Avoid duplicates
                     if full_link not in results and full_link not in page_links:
                          page_links.append(full_link)
             
             # Check for empty scrape on subsequent pages
             if not page_links and results:
-                print("No unique links found on this page. Retrying or moving to next...")
+                pass # Retrying implicitly or break
 
             results.extend(page_links)
             print(f"Found {len(page_links)} links on this page. Total: {len(results)}")
 
-            # --- Pagination Logic ---
+            # Pagination Logic
             try:
-                # 1. Capture the "Primary Key" of the current page (First Stock Name)
-                # This helps us confirm the page actually changed.
                 current_first_stock = ""
                 try:
                     first_row_link = driver.find_element(By.XPATH, "//table[contains(@id, 'DataTables_Table')]//tbody//tr[1]//a[contains(@href, 'fundamentals')]")
@@ -124,147 +159,80 @@ def get_url_and_index(driver):
                 except:
                     pass
 
-                # 2. Find Next button
-                # The HTML shows it's a <button> containing a <span>Next</span>
-                # XPath: //button[contains(., 'Next')] or //button[.//span[contains(text(), 'Next')]]
+                # Find Next button
                 next_buttons = driver.find_elements(By.XPATH, "//button[contains(., 'Next')]")
                 
                 if next_buttons:
                     btn = next_buttons[0]
-                    # Check if disabled by checking 'disabled' attribute directly on the button
                     if btn.get_attribute('disabled') is not None:
-                        print("Next button disabled. End of pages.")
                         break
                     
-                    # Click Next
-                    print("Clicking Next button...")
                     driver.execute_script("arguments[0].scrollIntoView(true);", btn)
                     driver.execute_script("arguments[0].click();", btn)
                     
-                    # 3. Wait for TABLE content to update (Robust Way)
-                    print(f"Waiting for table update... (Previous first stock: {current_first_stock})")
                     try:
                         if current_first_stock:
-                             WebDriverWait(driver, 20).until(
+                             WebDriverWait(driver, 10).until(
                                 lambda d: d.find_element(By.XPATH, "//table[contains(@id, 'DataTables_Table')]//tbody//tr[1]//a[contains(@href, 'fundamentals')]").text != current_first_stock
                             )
                         else:
-                            # Fallback if we couldn't read the first stock
-                             time.sleep(5)
+                             time.sleep(0.5)
                     except Exception as e:
-                        print(f"Table update wait timed out or failed: {e}. Attempting to scrape anyway.")
                         pass
-                    
-                    # Extra buffer for all rows to render
-                    time.sleep(2)
-
                 else:
-                    print("Next button not found. Assuming single page.")
                     break
             except Exception as e:
-                print(f"Pagination error: {e}")
                 break
-                
-        except Exception as e:
-            print("No more pages or an error occurred:", e)
-            import traceback
-            traceback.print_exc()
-            try:
-                driver.save_screenshot('error_scraping_urls.png')
-            except:
-                pass
-            break
 
+        except Exception as e:
+            print("Error scraping URL:", e)
+            break
     return results
 
-def get_image_from_link(driver, url, timeframe, s_range, form_data, retries=3):
-    driver.get(url)
-    time.sleep(2)
+def get_image_from_link(driver, url, period, s_range, moving_averages):
     try:
-        form_data_json = json.dumps(form_data)
-        
-        form_js_template = """
-        const formData = {form_data};
-
-        function fillForm(formId, data) {{
-            const form = document.getElementById(formId);
-            if (!form) {{
-                console.error("Form not found");
-                return;
-            }}
-
-            Object.keys(data).forEach(key => {{
-                const field = form.querySelector(`[name="${{key}}"]`);
-                const fieldData = data[key];
-
-                if (field) {{
-                    if (fieldData.type === "checkbox") {{
-                        field.checked = fieldData.value;
-                    }} else if (fieldData.type === "text") {{
-                        field.value = fieldData.value;
-                    }} else if (fieldData.type === "select") {{
-                        field.value = fieldData.value;
-                    }}
-                }}
-            }});
-        }}
-        fillForm("newone3", formData);
-        """
-        form_js = form_js_template.format(form_data=form_data_json)
-        driver.execute_script(form_js)
-
-        timeframe_mapping = {
-            "1 day": "1", "2 days": "2", "3 days": "3", "5 days": "5", "10 days": "10",
-            "1 month": "22", "2 months": "44", "3 months": "66", "4 months": "91",
-            "6 months": "121", "9 months": "198", "1 year": "252", "2 years": "504",
-            "3 years": "756", "5 years": "1008", "8 years": "1764", "All Data": "5000"
-        }
-        
-        range_mapping = {
-            "Daily": "d", "Weekly": "w", "Monthly": "m", "1 Minute": "1_minute",
-            "2 Minute": "2_minute", "3 Minute": "3_minute", "5 Minute": "5_minute",
-            "10 Minute": "10_minute", "15 Minute": "15_minute", "20 Minute": "20_minute",
-            "25 Minute": "25_minute", "30 Minute": "30_minute", "45 Minute": "45_minute",
-            "75 Minute": "75_minute", "125 Minute": "125_minute", "1 hour": "60_minute",
-            "2 hour": "120_minute", "3 hour": "180_minute", "4 hour": "240_minute"
-        }
-
-        try:
-            Select(driver.find_element(By.ID, "ti")).select_by_value(timeframe_mapping.get(timeframe, "252"))
-            Select(driver.find_element(By.ID, "d")).select_by_value(range_mapping.get(s_range, "w"))
-        except Exception as e:
-            print(f"Error setting selects: {e}")
-
-        driver.find_element(By.ID, "innerb").click()
-        
-        try:
-            iframe = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.ID, "ChartImage"))
-            )
-            driver.switch_to.frame(iframe)
-        except TimeoutException:
-            print("Chart iframe not found")
-            return None, None
-
-        for attempt in range(retries):
+        driver.get(url)
+        # Select period
+        if period:
             try:
-                body_html = driver.execute_script("return document.body.innerHTML;")
-                if not body_html:
-                    raise ValueError("innerHTML is empty")
-                
-                soup = BeautifulSoup(body_html, "html.parser")
-                img_tag = soup.find("img", {"id": "cross"})
-                
-                if img_tag:
-                    company_name_elem = driver.execute_script("return window.parent.document.querySelector(\"h3[style='margin: 0px;margin-left: 5px;font-size:20px']\").innerText")
-                    company_name = company_name_elem if company_name_elem else "Unknown"
-                    
-                    img_data_base64 = img_tag["src"].split(",")[1]
-                    return company_name, img_data_base64
-            except Exception as e:
-                time.sleep(2)
+                period_btn = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, f"//button[contains(text(), '{period}')]"))
+                )
+                period_btn.click()
+            except:
+                pass 
         
-        return None, None
+        # Determine the chart element ID
+        # Chartink usually renders the main chart in #ci_layout or #img_chart
+        # We wait for the chart image/container specifically
+        
+        chart_element = None
+        try:
+            # Wait for the specific chart layout or image to be visible
+            chart_element = WebDriverWait(driver, 10).until(
+                 EC.visibility_of_element_located((By.ID, 'ci_layout'))
+            )
+        except:
+             try:
+                 chart_element = driver.find_element(By.TAG_NAME, 'body')
+             except:
+                 pass
+
+        if not chart_element:
+            return None, None
+            
+        # Optional: A very short buffer for rendering final touches if eager load was too fast
+        time.sleep(0.5) 
+        
+        # Get Company Name
+        company_name = "Unknown"
+        try:
+            company_name = driver.find_element(By.XPATH, "//h1").text.strip()
+        except:
+             pass
+
+        screenshot = chart_element.screenshot_as_base64
+        return company_name, screenshot
 
     except Exception as e:
         print(f"Error getting image for {url}: {e}")
@@ -272,11 +240,7 @@ def get_image_from_link(driver, url, timeframe, s_range, form_data, retries=3):
 
 def generate_pdf(data):
     buffer = BytesIO()
-    # Start with A4, but we will adjust per page
     c = canvas.Canvas(buffer, pagesize=A4)
-    
-    # Standard A4 width for consistency (595.27 points)
-    # We will use this width but adjust height dynamically
     page_width = A4[0] 
 
     for item in data:
@@ -287,116 +251,272 @@ def generate_pdf(data):
         image.save(img_buffer, format='PNG')
         img_buffer.seek(0)
         
-        # Calculate dimensions
-        # Used width = Page Width - Margins (e.g. 20px on each side)
         margin = 20
         draw_width = page_width - (margin * 2)
         
         img_width, img_height = image.size
         aspect_ratio = img_height / img_width
-        
         draw_height = draw_width * aspect_ratio
         
-        # Calculate required page height:
-        # Top margin for Title (approx 50pts) + Image Height + Bottom Margin (20pts)
         total_page_height = 50 + draw_height + 20
-        
-        # Set the page size for this specific page
         c.setPageSize((page_width, total_page_height))
         
-        # Draw Title (Centered at top)
         c.setFont("Helvetica-Bold", 16)
         c.drawCentredString(page_width / 2, total_page_height - 35, company_name)
-        
-        # Draw Image (Centered horizontally, just below title)
         c.drawImage(ImageReader(img_buffer), margin, 20, width=draw_width, height=draw_height)
-        
         c.showPage()
 
     c.save()
     return buffer.getvalue()
 
-def process_job(job_id, screener_url, period, s_range, form_data):
+def process_job(job_id, screener_url, period, s_range, moving_averages, user_config):
     jobs[job_id]['status'] = 'running'
+    jobs[job_id]['canceled'] = False
+    
+    processed_data = [] # Accumulate data
+    urls = []
+    
+    # Attempt to get URLs first
     driver = None
     try:
         driver = web_driver()
         driver.get(screener_url)
-        
         jobs[job_id]['status'] = 'scraping_urls'
-        results = get_url_and_index(driver)
-        
-        jobs[job_id]['total'] = len(results)
-        jobs[job_id]['status'] = 'fetching_charts'
-        
-        processed_data = []
-        for i, url in enumerate(results):
-            if jobs[job_id].get('canceled'):
-                break
-                
-            company_name, img_data_base64 = get_image_from_link(driver, url, period, s_range, form_data)
-            if company_name and img_data_base64:
-                img_data = base64.b64decode(img_data_base64)
-                image = PILImage.open(BytesIO(img_data))
-                processed_data.append({"company_name": company_name, "image": image})
+        urls = get_url_and_index(driver)
+        jobs[job_id]['total'] = len(urls)
+    except Exception as e:
+        jobs[job_id]['status'] = 'failed'
+        jobs[job_id]['error'] = f"URL Scraping Failed: {str(e)}"
+        if driver: driver.quit()
+        return
+    finally:
+        if driver: driver.quit()
+
+    if not urls:
+        jobs[job_id]['status'] = 'failed'
+        jobs[job_id]['error'] = 'No stocks found.'
+        return
+
+    # Image Processing Loop with Auto-Recovery
+    jobs[job_id]['status'] = 'fetching_charts'
+    current_index = 0
+    max_retries = 5 # Try to recover driver crashes up to 5 times
+    retry_count = 0
+    
+    while current_index < len(urls):
+        if jobs[job_id].get('canceled'):
+            break
+
+        if retry_count >= max_retries:
+            print(f"Max retries reached for job {job_id}")
+            break
+
+        driver = None
+        try:
+            driver = web_driver()
             
-            jobs[job_id]['processed'] = i + 1
-            jobs[job_id]['current_company'] = company_name if company_name else url
+            # Inner loop for processing
+            while current_index < len(urls):
+                if jobs[job_id].get('canceled'):
+                     break
+                
+                url = urls[current_index]
+                jobs[job_id]['current_company'] = url # Update status
+                
+                # Fetch Image
+                company_name, img_data_base64 = get_image_from_link(driver, url, period, s_range, moving_averages)
+                
+                if company_name and img_data_base64:
+                    img_data = base64.b64decode(img_data_base64)
+                    image = PILImage.open(BytesIO(img_data))
+                    processed_data.append({"company_name": company_name, "image": image})
+                    jobs[job_id]['current_company'] = company_name # Better name
+                
+                current_index += 1
+                jobs[job_id]['processed'] = current_index
+        
+        except Exception as e:
+            print(f"Driver crashed/error at index {current_index}: {e}. Restarting driver...")
+            retry_count += 1
+            # We do NOT increment current_index here, so we retry the current URL
+            time.sleep(3) # Cooldown
+        finally:
+            if driver: 
+                try: 
+                    driver.quit()
+                except: 
+                    pass
+    
+    # Completion Handling
+    if not processed_data:
+        jobs[job_id]['status'] = 'failed'
+        jobs[job_id]['error'] = 'Job stopped or no data collected.' if jobs[job_id].get('canceled') else 'No charts fetched.'
+        return
 
-        if not processed_data:
-             jobs[job_id]['status'] = 'failed'
-             jobs[job_id]['error'] = 'No data found or charts could not be generated.'
-             return
-
-        jobs[job_id]['status'] = 'generating_pdf'
+    jobs[job_id]['status'] = 'generating_pdf'
+    try:
         pdf_bytes = generate_pdf(processed_data)
         jobs[job_id]['result'] = pdf_bytes
-        jobs[job_id]['status'] = 'completed'
+        jobs[job_id]['status'] = 'completed' if not jobs[job_id].get('canceled') else 'stopped' # allow download even if stopped
+        
+        # --- Telegram Integration ---
+        token = user_config.get('tg_token')
+        chat_id = user_config.get('tg_chat_id')
+        if token and chat_id:
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                fname = f"Chartink_Scan_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+                loop.run_until_complete(send_telegram_pdf(token, chat_id, pdf_bytes, fname))
+                loop.close()
+                jobs[job_id]['telegram_sent'] = True
+            except Exception as e:
+                print(f"Failed to send telegram: {e}")
 
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         jobs[job_id]['status'] = 'failed'
-        jobs[job_id]['error'] = str(e)
-    finally:
-        if driver:
-            driver.quit()
+        jobs[job_id]['error'] = f"PDF Gen Error: {str(e)}"
+
+# --- Routes ---
+
+@app.route('/stop_job/<job_id>', methods=['POST'])
+@login_required
+def stop_job(job_id):
+    if job_id in jobs:
+        jobs[job_id]['canceled'] = True
+        return jsonify({'success': True})
+    return jsonify({'error': 'Job not found'}), 404
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
+    return render_template('index.html', user=current_user)
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
+            login_user(user)
+            return redirect(url_for('home'))
+        flash('Invalid username or password')
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists')
+            return redirect(url_for('register'))
+        new_user = User(username=username)
+        new_user.set_password(password)
+        db.session.add(new_user)
+        db.session.commit()
+        login_user(new_user)
+        return redirect(url_for('home'))
+    return render_template('register.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
+@app.route('/api/update_settings', methods=['POST'])
+@login_required
+def update_settings():
+    data = request.json
+    current_user.telegram_bot_token = data.get('telegram_bot_token')
+    current_user.telegram_chat_id = data.get('telegram_chat_id')
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/presets', methods=['GET', 'POST'])
+@login_required
+def handle_presets():
+    if request.method == 'POST':
+        data = request.json
+        
+        ma_config_json = None
+        if data.get('moving_averages'):
+            ma_config_json = json.dumps(data['moving_averages'])
+
+        preset = ScanPreset(
+            user_id=current_user.id,
+            title=data['title'],
+            description=data.get('description', ''),
+            url=data['url'],
+            period=data.get('period', 'weekly'),
+            range_val=data.get('range', '1 year'),
+            ma_config=ma_config_json
+        )
+        db.session.add(preset)
+        db.session.commit()
+        return jsonify({'success': True, 'id': preset.id})
+    else:
+        # GET
+        presets = ScanPreset.query.filter_by(user_id=current_user.id).all()
+        result = []
+        for p in presets:
+            ma_data = None
+            if p.ma_config:
+                try:
+                    ma_data = json.loads(p.ma_config)
+                except:
+                    pass
+            
+            result.append({
+                'id': p.id,
+                'title': p.title,
+                'description': p.description,
+                'url': p.url,
+                'period': p.period,
+                'range': p.range_val,
+                'moving_averages': ma_data
+            })
+        return jsonify(result)
+
+@app.route('/api/presets/<int:id>', methods=['DELETE'])
+@login_required
+def delete_preset(id):
+    preset = ScanPreset.query.get_or_404(id)
+    if preset.user_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    db.session.delete(preset)
+    db.session.commit()
+    return jsonify({'success': True})
 
 @app.route('/start_generation', methods=['POST'])
+@login_required
 def start_generation():
     data = request.json
-    screener_url = data.get('screener_url')
-    period = data.get('period')
-    s_range = data.get('range')
-    moving_avg_data = data.get('moving_averages')
+    # Can accept raw URL or preset ID
+    screener_url = data.get('url')
+    period = data.get('period', 'weekly')
+    s_range = data.get('range', '1 year')
+    moving_averages = data.get('moving_averages') # New
     
-    form_data = {}
-    select_map = {"open": "o", "High": "h", "Low": "l", "Close": "c"}
-    type_map = {"Simple": "SMA", "Exponential": "EMA", "Weighted": "WMA", "Triangular": "TMA"}
-    
-    for i, ma in enumerate(moving_avg_data):
-        idx = i + 1
-        form_data[f"a{idx}"] = {"type": "checkbox", "value": ma['enabled']}
-        if ma['enabled']:
-            form_data[f"a{idx}t"] = {"type": "select", "value": select_map.get(ma['select'], 'c')}
-            form_data[f"a{idx}v"] = {"type": "select", "value": type_map.get(ma['type'], 'SMA')}
-            form_data[f"a{idx}l"] = {"type": "text", "value": str(ma['number'])}
-
     job_id = str(uuid.uuid4())
     jobs[job_id] = {
-        'status': 'initializing',
-        'total': 0,
-        'processed': 0,
+        'status': 'queued', 
+        'processed': 0, 
+        'total': 0, 
         'current_company': '',
-        'error': None,
-        'result': None
+        'telegram_sent': False
     }
-    
-    thread = threading.Thread(target=process_job, args=(job_id, screener_url, period, s_range, form_data))
+
+    user_config = {
+        'tg_token': current_user.telegram_bot_token,
+        'tg_chat_id': current_user.telegram_chat_id
+    }
+
+    thread = threading.Thread(target=process_job, args=(job_id, screener_url, period, s_range, moving_averages, user_config))
     thread.daemon = True
     thread.start()
     
@@ -406,15 +526,15 @@ def start_generation():
 def check_status(job_id):
     job = jobs.get(job_id)
     if not job:
-        return jsonify({'error': 'Job not found'}), 404
+        return jsonify({'status': 'not_found'}), 404
     
-    # Don't send the result binary data in status check
     response = {
         'status': job['status'],
-        'total': job['total'],
-        'processed': job['processed'],
+        'processed': job.get('processed', 0),
+        'total': job.get('total', 0),
         'current_company': job.get('current_company', ''),
-        'error': job.get('error')
+        'error': job.get('error'),
+        'telegram_sent': job.get('telegram_sent')
     }
     return jsonify(response)
 
@@ -432,5 +552,9 @@ def download(job_id):
         mimetype='application/pdf'
     )
 
+with app.app_context():
+    db.create_all()
+
 if __name__ == '__main__':
+    # Use 0.0.0.0 for external access
     app.run(host='0.0.0.0', debug=True, port=5000)

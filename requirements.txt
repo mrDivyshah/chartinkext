@@ -6,3 +6,4 @@ reportlab
 beautifulsoup4
 python-telegram-bot
 requests
+gunicorn

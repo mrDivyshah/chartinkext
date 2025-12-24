@@ -8,12 +8,12 @@ RUN apt-get update && apt-get install -y \
     unzip \
     curl \
     libnss3 \
-    libgconf-2-4 \
     libfontconfig1 \
     fonts-liberation \
     libasound2 \
-    libappindicator3-1 \
     xdg-utils \
+    libgbm1 \
+    libgtk-3-0 \
     --no-install-recommends
 
 # Install Google Chrome Stable directly from the .deb file

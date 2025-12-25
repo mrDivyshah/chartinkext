@@ -7,7 +7,7 @@ start_dir = '/home/divy123'
 found_path = None
 
 os.environ['MAIL_USERNAME'] = 'semple2266@gmail.com'
-os.environ['MAIL_PASSWORD'] = 'TheSidPass'
+os.environ['MAIL_PASSWORD'] = 'ezteqhzhivsfedlg'
 
 print(f"DEBUG: Searching for app.py in {start_dir}...", file=sys.stderr)
 

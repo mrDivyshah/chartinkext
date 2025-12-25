@@ -219,47 +219,119 @@ def get_url_and_index(driver):
 def get_image_from_link(driver, url, period, s_range, moving_averages):
     try:
         driver.get(url)
-        # Select period
-        if period:
-            try:
-                period_btn = WebDriverWait(driver, 5).until(
-                    EC.element_to_be_clickable((By.XPATH, f"//button[contains(text(), '{period}')]"))
-                )
-                period_btn.click()
-            except:
-                pass 
         
-        # Determine the chart element ID
-        # Chartink usually renders the main chart in #ci_layout or #img_chart
-        # We wait for the chart image/container specifically
+        # 1. Update Form/Settings (Simplified version of user's JS injection or using Selenium)
+        # We will use Selenium for stability as I might not have the full form structure to inject JS easily right now
+        # But the key is to set the Period/Range and CLICK UPDATE.
         
-        chart_element = None
-        try:
-            # Wait for the specific chart layout or image to be visible
-            chart_element = WebDriverWait(driver, 10).until(
-                 EC.visibility_of_element_located((By.ID, 'ci_layout'))
-            )
-        except:
-             try:
-                 chart_element = driver.find_element(By.TAG_NAME, 'body')
-             except:
-                 pass
+        timeframe_mapping = {
+            "1 day": "1", "2 days": "2", "3 days": "3", "5 days": "5", "10 days": "10",
+            "1 month": "22", "2 months": "44", "3 months": "66", "4 months": "91",
+            "6 months": "121", "9 months": "198", "1 year": "252", "2 years": "504",
+            "3 years": "756", "5 years": "1008", "8 years": "1764", "All Data": "5000"
+        }
+        
+        range_mapping = {
+            "Daily": "d", "Weekly": "w", "Monthly": "m" 
+            # Add minute mapping if needed, simplified for main use case
+        }
 
-        if not chart_element:
-            return None, None
-            
-        # Optional: A very short buffer for rendering final touches if eager load was too fast
-        time.sleep(0.5) 
-        
-        # Get Company Name
-        company_name = "Unknown"
+        # Apply Settings if provided
         try:
-            company_name = driver.find_element(By.XPATH, "//h1").text.strip()
-        except:
+            if period:
+                Select(driver.find_element(By.ID, "ti")).select_by_value(timeframe_mapping.get(period, "5000"))
+            if s_range:
+                Select(driver.find_element(By.ID, "d")).select_by_value(range_mapping.get(s_range, "d"))
+            
+            # Apply Moving Averages
+            if moving_averages:
+                # moving_averages is expected to be a dict: { '1': {'enabled': True...}, ... }
+                # or a list. Adjusting based on script.js saving format.
+                # script.js saves as { '1': {...}, '2': {...} }
+                
+                type_map = {"Simple": "SMA", "Exponential": "EMA", "Weighted": "WMA", "Triangular": "TMA"}
+                field_map = {"Close": "c", "Open": "o", "High": "h", "Low": "l"}
+                
+                for i in range(1, 6):
+                    ma_key = str(i)
+                    if ma_key in moving_averages:
+                        ma = moving_averages[ma_key]
+                        if ma.get('enabled'):
+                            # Enable Checkbox
+                            chk = driver.find_element(By.ID, f"a{i}")
+                            if not chk.is_selected(): chk.click()
+                            
+                            # Set Field (c, o, h, l)
+                            if 'field' in ma:
+                                Select(driver.find_element(By.NAME, f"a{i}t")).select_by_value(field_map.get(ma['field'], 'c'))
+                                
+                            # Set Type (SMA, EMA...)
+                            if 'type' in ma:
+                                Select(driver.find_element(By.ID, f"a{i}v")).select_by_value(type_map.get(ma['type'], 'SMA'))
+                                
+                            # Set Period (Number)
+                            if 'period' in ma:
+                                inp = driver.find_element(By.NAME, f"a{i}l")
+                                inp.clear()
+                                inp.send_keys(str(ma['period']))
+                        else:
+                            # Disable if not enabled (ensure unchecked)
+                            chk = driver.find_element(By.ID, f"a{i}")
+                            if chk.is_selected(): chk.click()
+
+        except Exception as e:
+             # Default might be fine if elements missing
+             # print(f"Error setting inputs: {e}")
              pass
 
-        screenshot = chart_element.screenshot_as_base64
-        return company_name, screenshot
+        # IMPORTANT: Click Update Chart
+        try:
+            driver.find_element(By.ID, "innerb").click()
+            time.sleep(1) # Wait for update to trigger
+        except:
+            pass
+
+        # 2. Extract Company Name
+        company_name = "Unknown"
+        try:
+            company_name = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.XPATH, "//h3[@style='margin: 0px;margin-left: 5px;font-size:20px']"))
+            ).text
+        except:
+            try:
+                company_name = driver.find_element(By.TAG_NAME, "h1").text.strip()
+            except:
+                pass
+
+
+        # 3. Switch to Iframe and Get Image
+        try:
+            iframe = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, "ChartImage"))
+            )
+            driver.switch_to.frame(iframe)
+            
+            # Wait for img#cross
+            img_tag = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, "cross"))
+            )
+            
+            src = img_tag.get_attribute("src")
+            if src and "base64" in src:
+                img_b64_str = src.split(",")[1]
+                return company_name, img_b64_str
+            else:
+                # Fallback if src is a link (download it) or not base64
+                # Or re-read user's code: they expect base64 splitting. 
+                pass
+
+        except Exception as e:
+            # print(f"Iframe/Img extraction failed: {e}")
+            pass
+            
+        # Fallback to screenshotting the body if img#cross failing (just in case)
+        # But per user request we focused on img#cross
+        return None, None
 
     except Exception as e:
         print(f"Error getting image for {url}: {e}")

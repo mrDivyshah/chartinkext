@@ -90,13 +90,26 @@ def web_driver():
     # Check for PythonAnywhere environment
     if 'PYTHONANYWHERE_DOMAIN' in os.environ:
         options.add_argument('--headless')
-        options.binary_location = "/usr/bin/chromium"
+        
+        # Try finding the binary
+        paths = ["/usr/bin/chromium", "/usr/bin/chromium-browser"]
+        found_bin = None
+        for p in paths:
+            if os.path.exists(p):
+                found_bin = p
+                break
+        
+        if found_bin:
+            options.binary_location = found_bin
+        
         try:
             service = Service("/usr/bin/chromedriver")
             driver = webdriver.Chrome(service=service, options=options)
             return driver
         except Exception as e:
             print(f"Failed to use system chromedriver: {e}")
+            # Do NOT pass here, return None or let it fail, 
+            # because fallback to webdriver_manager will definitely fail on PA
             pass
 
     # Docker / Local Headless

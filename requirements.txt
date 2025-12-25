@@ -10,3 +10,4 @@ gunicorn
 Flask-SQLAlchemy
 Flask-Login
 werkzeug
+Flask-Mail

@@ -6,6 +6,9 @@ import os
 start_dir = '/home/divy123'
 found_path = None
 
+os.environ['MAIL_USERNAME'] = 'semple2266@gmail.com'
+os.environ['MAIL_PASSWORD'] = 'TheSidPass'
+
 print(f"DEBUG: Searching for app.py in {start_dir}...", file=sys.stderr)
 
 for root, dirs, files in os.walk(start_dir):

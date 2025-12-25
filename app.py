@@ -2,6 +2,7 @@ import threading
 import uuid
 import os
 import json
+import secrets # Added
 import time
 import base64
 import requests
@@ -29,23 +30,35 @@ from webdriver_manager.chrome import ChromeDriverManager
 from telegram import Bot
 
 # --- Configuration ---
+from flask_mail import Mail, Message # Added
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-change-this-in-production' # Change this!
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-dev-key-change-this')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///chartink_app.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Mail Configuration
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME') # Setup Env Var
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD') # Setup Env Var
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
+
 db = SQLAlchemy(app)
-login_manager = LoginManager()
-login_manager.init_app(app)
+mail = Mail(app) # Init Mail
+login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
 # --- Models ---
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
-    password_hash = db.Column(db.String(150), nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=False) # New
+    password_hash = db.Column(db.String(200), nullable=False)
     telegram_bot_token = db.Column(db.String(200), nullable=True)
     telegram_chat_id = db.Column(db.String(100), nullable=True)
+    recovery_code = db.Column(db.String(50), nullable=True) # New column
     presets = db.relationship('ScanPreset', backref='owner', lazy=True)
 
     def set_password(self, password):
@@ -423,17 +436,70 @@ def login():
 def register():
     if request.method == 'POST':
         username = request.form.get('username')
+        email = request.form.get('email')
         password = request.form.get('password')
-        if User.query.filter_by(username=username).first():
-            flash('Username already exists')
+        
+        if User.query.filter((User.username==username) | (User.email==email)).first():
+            flash('Username or Email already exists')
             return redirect(url_for('register'))
-        new_user = User(username=username)
+        
+        # Generate backup recovery code
+        recovery_code = secrets.token_hex(4).upper()
+        
+        new_user = User(username=username, email=email, recovery_code=recovery_code)
         new_user.set_password(password)
         db.session.add(new_user)
         db.session.commit()
+        
         login_user(new_user)
+        flash(f'Registration Successful! Backup Recovery Code: {recovery_code}')
         return redirect(url_for('home'))
+        
     return render_template('register.html')
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        # Step 1: Request Code
+        if 'request_code' in request.form:
+            email = request.form.get('email')
+            user = User.query.filter_by(email=email).first()
+            if user:
+                # Generate temporary reset code (simple 6 digit)
+                code = str(secrets.randbelow(1000000)).zfill(6)
+                user.recovery_code = code # Temporarily overwrite
+                db.session.commit()
+                
+                try:
+                    msg = Message("Password Reset Request", recipients=[email])
+                    msg.body = f"Your Password Reset Code is: {code}"
+                    mail.send(msg)
+                    flash('Reset code sent to your email.')
+                    return render_template('forgot_password.html', step='verify', email=email)
+                except Exception as e:
+                    print(e)
+                    flash('Error sending email. Check server logs.')
+            else:
+                flash('Email not found.')
+        
+        # Step 2: Verify and Reset
+        elif 'verify_code' in request.form:
+            email = request.form.get('email')
+            code = request.form.get('code')
+            new_pass = request.form.get('new_password')
+            
+            user = User.query.filter_by(email=email).first()
+            if user and user.recovery_code == code:
+                user.set_password(new_pass)
+                user.recovery_code = secrets.token_hex(4).upper() # Reset/Rotate
+                db.session.commit()
+                flash('Password reset successful! Please login.')
+                return redirect(url_for('login'))
+            else:
+                flash('Invalid code.')
+                return render_template('forgot_password.html', step='verify', email=email)
+            
+    return render_template('forgot_password.html', step='request')
 
 @app.route('/logout')
 @login_required

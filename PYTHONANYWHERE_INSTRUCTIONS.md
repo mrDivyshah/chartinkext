@@ -35,9 +35,24 @@ pip install -r requirements.txt
     project_home = '/home/yourusername/mysite' 
     ```
 
-## 5. Reload
-1.  Go back to the **Web** tab.
-2.  Click the big green **Reload** button.
+## 4. Install Dependencies
+Open a **Bash console** on PythonAnywhere (Dashboard -> Consoles -> Bash).
+Navigate to your project folder:
+```bash
+cd mysite/chartinkext  # OR wherever you uploaded it
+```
+Run the installation command:
+```bash
+pip install -r requirements.txt --user
+```
+*Note: The `--user` flag is important on PythonAnywhere if you are not using a virtual environment.*
+If `requirements.txt` is missing, run:
+```bash
+pip install Flask selenium webdriver-manager Pillow reportlab beautifulsoup4 python-telegram-bot requests Flask-SQLAlchemy Flask-Login werkzeug --user
+```
+
+## 5. Reload Web App
+Go back to the **Web** tab and click the green **Reload** button.
 3.  Visit your site URL!
 
 ## Troubleshooting

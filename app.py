@@ -224,65 +224,105 @@ def get_image_from_link(driver, url, period, s_range, moving_averages):
         # We will use Selenium for stability as I might not have the full form structure to inject JS easily right now
         # But the key is to set the Period/Range and CLICK UPDATE.
         
-        timeframe_mapping = {
+        # 1. Update Form/Settings via JS Injection
+        # Mappings
+        # Chartink 'ti' = Period (Duration eg 1 year). User passes this in 's_range' (e.g "1 year")
+        # Chartink 'd' = Range (Interval eg Weekly). User passes this in 'period' (e.g "weekly")
+        
+        ti_map = {
             "1 day": "1", "2 days": "2", "3 days": "3", "5 days": "5", "10 days": "10",
             "1 month": "22", "2 months": "44", "3 months": "66", "4 months": "91",
             "6 months": "121", "9 months": "198", "1 year": "252", "2 years": "504",
             "3 years": "756", "5 years": "1008", "8 years": "1764", "All Data": "5000"
         }
         
-        range_mapping = {
-            "Daily": "d", "Weekly": "w", "Monthly": "m" 
-            # Add minute mapping if needed, simplified for main use case
+        d_map = {
+            "daily": "d", "weekly": "w", "monthly": "m",
+            "1 minute": "1_minute", "2 minute": "2_minute", "3 minute": "3_minute",
+            "5 minute": "5_minute", "10 minute": "10_minute", "15 minute": "15_minute",
+            "30 minute": "30_minute", "45 minute": "45_minute", "75 minute": "75_minute",
+            "125 minute": "125_minute", "60 minute": "60_minute"
         }
 
-        # Apply Settings if provided
-        try:
-            if period:
-                Select(driver.find_element(By.ID, "ti")).select_by_value(timeframe_mapping.get(period, "5000"))
-            if s_range:
-                Select(driver.find_element(By.ID, "d")).select_by_value(range_mapping.get(s_range, "d"))
-            
-            # Apply Moving Averages
-            if moving_averages:
-                # moving_averages is expected to be a dict: { '1': {'enabled': True...}, ... }
-                # or a list. Adjusting based on script.js saving format.
-                # script.js saves as { '1': {...}, '2': {...} }
-                
-                type_map = {"Simple": "SMA", "Exponential": "EMA", "Weighted": "WMA", "Triangular": "TMA"}
-                field_map = {"Close": "c", "Open": "o", "High": "h", "Low": "l"}
-                
-                for i in range(1, 6):
-                    ma_key = str(i)
-                    if ma_key in moving_averages:
-                        ma = moving_averages[ma_key]
-                        if ma.get('enabled'):
-                            # Enable Checkbox
-                            chk = driver.find_element(By.ID, f"a{i}")
-                            if not chk.is_selected(): chk.click()
-                            
-                            # Set Field (c, o, h, l)
-                            if 'field' in ma:
-                                Select(driver.find_element(By.NAME, f"a{i}t")).select_by_value(field_map.get(ma['field'], 'c'))
-                                
-                            # Set Type (SMA, EMA...)
-                            if 'type' in ma:
-                                Select(driver.find_element(By.ID, f"a{i}v")).select_by_value(type_map.get(ma['type'], 'SMA'))
-                                
-                            # Set Period (Number)
-                            if 'period' in ma:
-                                inp = driver.find_element(By.NAME, f"a{i}l")
-                                inp.clear()
-                                inp.send_keys(str(ma['period']))
-                        else:
-                            # Disable if not enabled (ensure unchecked)
-                            chk = driver.find_element(By.ID, f"a{i}")
-                            if chk.is_selected(): chk.click()
+        # Normalize inputs
+        user_duration = s_range.lower() if s_range else "1 year" # Maps to 'ti'
+        user_interval = period.lower() if period else "weekly"   # Maps to 'd'
 
+        ti_val = ti_map.get(user_duration, "252") 
+        d_val = d_map.get(user_interval, "w")
+
+        # Prepare Data Dictionaries
+        inner_form_data = {
+            "ti": {"type": "select", "value": ti_val},
+            "d": {"type": "select", "value": d_val},
+            "c": {"type": "select", "value": "None"} # Default to CandleStick
+        }
+
+        ma_form_data = {}
+        # Apply Moving Averages
+        type_map = {"Simple": "SMA", "Exponential": "EMA", "Weighted": "WMA", "Triangular": "TMA"}
+        field_map = {"Close": "c", "Open": "o", "High": "h", "Low": "l"}
+        
+        for i in range(1, 6):
+            ma_key = f"ma_{i}"
+            enabled = False
+            ma_data = {}
+            
+            if moving_averages and ma_key in moving_averages:
+                 ma_data = moving_averages[ma_key]
+                 if ma_data.get('enabled'):
+                     enabled = True
+
+            # Always set the checkbox state
+            ma_form_data[f"a{i}"] = {"type": "checkbox", "value": enabled}
+            
+            if enabled:
+                ma_form_data[f"a{i}t"] = {"type": "select", "value": field_map.get(ma_data.get('field'), 'c')}
+                ma_form_data[f"a{i}v"] = {"type": "select", "value": type_map.get(ma_data.get('type'), 'SMA')}
+                ma_form_data[f"a{i}l"] = {"type": "text", "value": str(ma_data.get('period', 20))}
+            else:
+                 # Ensure strict uncheck behavior
+                pass
+
+        # JS Injection
+        js_script = """
+        const innerData = %s;
+        const maData = %s;
+
+        function fillForm(formId, data) {
+            const form = document.getElementById(formId);
+            if (!form) return;
+
+            Object.keys(data).forEach(key => {
+                const field = form.querySelector(`[name="${key}"]`);
+                if (field) {
+                    const info = data[key];
+                    if (info.type === 'checkbox') {
+                        field.checked = info.value;
+                    } else {
+                        field.value = info.value;
+                    }
+                }
+            });
+        }
+
+        // Fill both forms
+        fillForm('innerform', innerData);
+        fillForm('newone3', maData);
+        """ % (json.dumps(inner_form_data), json.dumps(ma_form_data))
+
+        try:
+            driver.execute_script(js_script)
+            time.sleep(0.5) # Allow DOM updates
+            
+            # Click Update
+            update_btn = driver.find_element(By.ID, "innerb")
+            driver.execute_script("arguments[0].click();", update_btn)
+            time.sleep(2) # Important: Wait for chart reload
+            
         except Exception as e:
-             # Default might be fine if elements missing
-             # print(f"Error setting inputs: {e}")
-             pass
+            print(f"Error updating chart settings: {e}")
+            pass
 
         # IMPORTANT: Click Update Chart
         try:

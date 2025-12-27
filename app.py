@@ -240,8 +240,10 @@ def get_image_from_link(driver, url, period, s_range, moving_averages):
             "daily": "d", "weekly": "w", "monthly": "m",
             "1 minute": "1_minute", "2 minute": "2_minute", "3 minute": "3_minute",
             "5 minute": "5_minute", "10 minute": "10_minute", "15 minute": "15_minute",
+            "20 minute": "20_minute", "25 minute": "25_minute",
             "30 minute": "30_minute", "45 minute": "45_minute", "75 minute": "75_minute",
-            "125 minute": "125_minute", "60 minute": "60_minute"
+            "125 minute": "125_minute", "60 minute": "60_minute",
+            "120 minute": "120_minute", "180 minute": "180_minute", "240 minute": "240_minute"
         }
 
         # Normalize inputs

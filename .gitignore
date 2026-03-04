@@ -1,0 +1,83 @@
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+*.whl
+
+# ========================
+# Virtual Environments
+# ========================
+venv/
+env/
+.venv/
+.env/
+ENV/
+
+# ========================
+# Environment Variables (secrets!)
+# ========================
+.env
+.env.*
+*.env
+secrets.json
+
+# ========================
+# Flask / SQLAlchemy
+# ========================
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# ========================
+# Database dumps (contain sensitive user data)
+# ========================
+mysql_dump.sql
+generate_sql.py
+migrate.py
+test_db.py
+
+# ========================
+# Logs & Debug
+# ========================
+*.log
+logs/
+error_scraping_urls.png
+
+# ========================
+# OS Files
+# ========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========================
+# IDEs
+# ========================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ========================
+# Docker
+# ========================
+# (Dockerfile is kept — needed for deployment)
+
+# ========================
+# WebDriver / Selenium cache
+# ========================
+.wdm/
+webdriver/
+chromedriver*

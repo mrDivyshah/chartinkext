@@ -5,74 +5,276 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Chartink Scraper</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        body {
-            background-color: #0f172a;
-            color: #e2e8f0;
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
-        .glass {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #F1F5F9;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .auth-wrap {
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 28px;
+        }
+
+        .brand-icon {
+            width: 40px;
+            height: 40px;
+            background: #2563EB;
+            border-radius: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            box-shadow: 0 6px 16px rgba(37, 99, 235, .35);
+        }
+
+        .brand-name {
+            font-size: 20px;
+            font-weight: 800;
+            color: #0F172A;
+            letter-spacing: -0.5px;
+        }
+
+        .brand-name span {
+            color: #2563EB;
+        }
+
+        .card {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 18px;
+            padding: 36px 36px 30px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .07), 0 2px 6px rgba(0, 0, 0, .04);
+        }
+
+        .card-head {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .card-head h1 {
+            font-size: 22px;
+            font-weight: 800;
+            color: #0F172A;
+            margin-bottom: 6px;
+            letter-spacing: -0.5px;
+        }
+
+        .card-head p {
+            font-size: 14px;
+            color: #64748B;
+        }
+
+        .alert {
+            background: #FEF2F2;
+            border: 1.5px solid #FECACA;
+            color: #DC2626;
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 13px;
+            text-align: center;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 6px;
+        }
+
+        .input-wrap {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 13px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94A3B8;
+            font-size: 14px;
+            pointer-events: none;
+        }
+
+        .form-input {
+            width: 100%;
+            background: #F8FAFC;
+            border: 1.5px solid #E2E8F0;
+            border-radius: 10px;
+            padding: 11px 14px 11px 40px;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            color: #0F172A;
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .form-input:focus {
+            border-color: #2563EB;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, .1);
+        }
+
+        .form-input::placeholder {
+            color: #CBD5E1;
+        }
+
+        .forgot-link {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 6px;
+        }
+
+        .forgot-link a {
+            font-size: 12px;
+            font-weight: 600;
+            color: #2563EB;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .forgot-link a:hover {
+            color: #1D4ED8;
+        }
+
+        .btn-primary {
+            width: 100%;
+            background: #2563EB;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, .3);
+            margin-top: 6px;
+        }
+
+        .btn-primary:hover {
+            background: #1D4ED8;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(37, 99, 235, .35);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .card-footer {
+            text-align: center;
+            margin-top: 22px;
+            font-size: 13px;
+            color: #64748B;
+        }
+
+        .card-footer a {
+            color: #2563EB;
+            font-weight: 700;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .card-footer a:hover {
+            color: #1D4ED8;
+        }
+
+        .divider {
+            border: none;
+            border-top: 1px solid #F1F5F9;
+            margin: 20px 0;
         }
     </style>
 </head>
 
-<body class="flex items-center justify-center min-h-screen">
-    <div class="glass p-8 rounded-2xl shadow-2xl w-full max-w-md animate-[fadeIn_0.5s_ease-out]">
-        <div class="text-center mb-8">
-            <i class="fa-solid fa-chart-line text-5xl text-blue-500 mb-4"></i>
-            <h2 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
-                Welcome Back</h2>
-            <p class="text-slate-400 mt-2">Sign in to your dashboard</p>
+<body>
+    <div class="auth-wrap">
+        <div class="brand">
+            <div class="brand-icon"><i class="fa-solid fa-chart-line"></i></div>
+            <span class="brand-name">Chartink<span>Scraper</span></span>
         </div>
-
-        {% with messages = get_flashed_messages() %}
-        {% if messages %}
-        <div class="bg-red-500/10 border border-red-500/50 text-red-500 px-4 py-3 rounded-lg mb-6 text-sm text-center">
-            {{ messages[0] }}
-        </div>
-        {% endif %}
-        {% endwith %}
-
-        <form method="POST" action="/login" class="space-y-6">
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-2">Username</label>
-                <div class="relative">
-                    <span class="absolute left-3 top-3 text-slate-500"><i class="fa-solid fa-user"></i></span>
-                    <input type="text" name="username" required
-                        class="w-full bg-slate-800 border border-slate-700 rounded-lg py-3 pl-10 px-4 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors placeholder-slate-500 text-white"
-                        placeholder="Enter your username">
-                </div>
+        <div class="card">
+            <div class="card-head">
+                <h1>Welcome back</h1>
+                <p>Sign in to your dashboard</p>
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-2">Password</label>
-                <div class="relative">
-                    <span class="absolute left-3 top-3 text-slate-500"><i class="fa-solid fa-lock"></i></span>
-                    <input type="password" name="password" required
-                        class="w-full bg-slate-800 border border-slate-700 rounded-lg py-3 pl-10 px-4 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors placeholder-slate-500 text-white"
-                        placeholder="••••••••">
-                </div>
-                <div class="flex justify-end mt-2">
-                    <a href="{{ url_for('forgot_password') }}"
-                        class="text-xs text-slate-400 hover:text-blue-400 transition-colors">Forgot Password?</a>
-                </div>
+            {% with messages = get_flashed_messages() %}
+            {% if messages %}
+            <div class="alert">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                {{ messages[0] }}
             </div>
+            {% endif %}
+            {% endwith %}
 
-            <button type="submit"
-                class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-all transform hover:scale-[1.02] shadow-lg shadow-blue-500/30">
-                Sign In
-            </button>
-        </form>
-
-        <p class="mt-6 text-center text-slate-400 text-sm">
-            Don't have an account?
-            <a href="/register" class="text-blue-400 hover:text-blue-300 font-semibold transition-colors">Create one</a>
-        </p>
+            <form method="POST" action="/login">
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <div class="input-wrap">
+                        <i class="fa-solid fa-user input-icon"></i>
+                        <input type="text" name="username" required class="form-input" placeholder="Enter your username"
+                            autofocus>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <div class="input-wrap">
+                        <i class="fa-solid fa-lock input-icon"></i>
+                        <input type="password" name="password" required class="form-input" placeholder="••••••••">
+                    </div>
+                    <div class="forgot-link">
+                        <a href="{{ url_for('forgot_password') }}">Forgot password?</a>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">Sign In</button>
+            </form>
+            <hr class="divider">
+            <div class="card-footer">
+                Don't have an account? <a href="/register">Create one</a>
+            </div>
+        </div>
     </div>
 </body>
 

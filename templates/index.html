@@ -5,143 +5,1171 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Chartink Scraper</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        dark: '#0f172a',
-                        card: '#1e293b',
-                        accent: '#3b82f6'
-                    }
-                }
-            }
-        }
-    </script>
+    <meta name="description"
+        content="Chartink Scraper - Generate professional stock chart PDFs from your Chartink screeners">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* CustomScrollbar */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --primary: #2563EB;
+            --primary-light: #EFF6FF;
+            --primary-dark: #1D4ED8;
+            --success: #16A34A;
+            --success-light: #F0FDF4;
+            --danger: #DC2626;
+            --danger-light: #FEF2F2;
+            --warning: #D97706;
+            --warning-light: #FFFBEB;
+            --bg: #F1F5F9;
+            --surface: #FFFFFF;
+            --surface-2: #F8FAFC;
+            --border: #E2E8F0;
+            --border-strong: #CBD5E1;
+            --text-primary: #0F172A;
+            --text-secondary: #475569;
+            --text-muted: #94A3B8;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, .06), 0 1px 2px rgba(0, 0, 0, .04);
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, .07), 0 2px 4px -2px rgba(0, 0, 0, .05);
+            --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, .08), 0 4px 6px -4px rgba(0, 0, 0, .05);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, .08), 0 8px 10px -6px rgba(0, 0, 0, .05);
+            --radius: 12px;
+            --radius-lg: 16px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Scrollbar */
         ::-webkit-scrollbar {
-            width: 8px;
+            width: 6px;
         }
 
         ::-webkit-scrollbar-track {
-            background: #0f172a;
+            background: var(--bg);
         }
 
         ::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 4px;
+            background: var(--border-strong);
+            border-radius: 3px;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: #475569;
+            background: var(--text-muted);
         }
 
-        .glass {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+        /* NAV */
+        nav {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: var(--shadow-sm);
         }
 
-        /* Fix Dropdown Options in Dark Mode */
-        select option {
-            background-color: #1e293b;
-            /* slate-800 */
-            color: #e2e8f0;
-            /* slate-200 */
+        .nav-inner {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--primary);
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, .3);
+        }
+
+        .logo-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.4px;
+        }
+
+        .logo-text span {
+            color: var(--primary);
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-user {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+        }
+
+        .user-avatar {
+            width: 28px;
+            height: 28px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .user-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .btn-settings {
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-size: 15px;
+        }
+
+        .btn-settings:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .btn-logout {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            background: var(--danger-light);
+            color: var(--danger);
+            border: 1px solid #FECACA;
+            border-radius: 9px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .btn-logout:hover {
+            background: var(--danger);
+            color: white;
+            border-color: var(--danger);
+        }
+
+        /* MAIN LAYOUT */
+        main {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 28px 24px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        /* CARD */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+        }
+
+        .card-header {
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-header-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .card-header-icon.green {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .card-header-icon.blue {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .card-header-icon.amber {
+            background: var(--warning-light);
+            color: var(--warning);
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .card-body {
+            padding: 20px 24px;
+        }
+
+        /* FORM ELEMENTS */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 6px;
+        }
+
+        .input-wrap {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 13px;
+            pointer-events: none;
+        }
+
+        .form-input {
+            width: 100%;
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px 10px 36px;
+            font-size: 13.5px;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .form-input:focus {
+            border-color: var(--primary);
+            background: var(--surface);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, .08);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-select {
+            width: 100%;
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 36px 10px 12px;
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+            transition: all 0.2s;
+            outline: none;
+            appearance: none;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394A3B8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+        }
+
+        .form-select:focus {
+            border-color: var(--primary);
+            background-color: var(--surface);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, .08);
+        }
+
+        .form-select option {
+            background: white;
+            color: var(--text-primary);
+        }
+
+        .form-select optgroup {
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        /* MA SECTION */
+        .ma-section {
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+
+        .ma-toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 2px;
+        }
+
+        .toggle-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .ma-rows {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .ma-rows.open {
+            display: flex;
+        }
+
+        .ma-row {
+            display: grid;
+            grid-template-columns: auto 1fr 1fr 60px;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .ma-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ma-select,
+        .ma-input {
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 8px;
+            font-size: 12px;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+            outline: none;
+            width: 100%;
+            transition: all 0.15s;
+        }
+
+        .ma-select {
+            appearance: none;
+            cursor: pointer;
+        }
+
+        .ma-select:focus,
+        .ma-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, .08);
+        }
+
+        .ma-input {
+            text-align: center;
+        }
+
+        /* PRESET SAVE SECTION */
+        .preset-save-box {
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+
+        .preset-toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .preset-fields {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .preset-fields.open {
+            display: flex;
+        }
+
+        .preset-input {
+            width: 100%;
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+            outline: none;
+            transition: all 0.15s;
+        }
+
+        .preset-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, .08);
+        }
+
+        .preset-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        /* CHECKBOX */
+        .check-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .check-wrap input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        /* BUTTONS */
+        .btn-primary {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, .25);
+            letter-spacing: 0.1px;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(37, 99, 235, .3);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        /* STATUS */
+        .status-box {
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 16px;
+            display: none;
+        }
+
+        .status-box.show {
+            display: block;
+        }
+
+        .status-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .status-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .status-percent {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: -1px;
+        }
+
+        .progress-track {
+            background: var(--border);
+            border-radius: 100px;
+            height: 6px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), #60A5FA);
+            border-radius: 100px;
+            transition: width 0.4s ease;
+            box-shadow: 0 0 8px rgba(37, 99, 235, .4);
+            width: 0%;
+        }
+
+        .status-company {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+            background: var(--surface);
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .status-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .btn-stop {
+            flex: 1;
+            background: var(--danger-light);
+            color: var(--danger);
+            border: 1.5px solid #FECACA;
+            border-radius: 8px;
             padding: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: none;
+        }
+
+        .btn-stop:hover {
+            background: var(--danger);
+            color: white;
+            border-color: var(--danger);
+        }
+
+        .btn-download {
+            flex: 1;
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            box-shadow: 0 4px 10px rgba(22, 163, 74, .2);
+        }
+
+        .btn-download:hover {
+            background: #15803D;
+            transform: translateY(-1px);
+        }
+
+        /* RIGHT PANEL */
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .panel-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: -0.4px;
+        }
+
+        .panel-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .btn-refresh {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: 9px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-refresh:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        /* PRESET CARDS */
+        .presets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .preset-card {
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .preset-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), #60A5FA);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s ease;
+        }
+
+        .preset-card:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .preset-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .preset-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 6px;
+        }
+
+        .preset-card-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            flex: 1;
+            margin-right: 8px;
+            line-height: 1.3;
+        }
+
+        .preset-card-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .btn-run {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 7px;
+            font-size: 12px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 6px rgba(37, 99, 235, .25);
+        }
+
+        .btn-run:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-delete {
+            width: 30px;
+            height: 30px;
+            border-radius: 7px;
+            border: 1.5px solid var(--border);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .btn-delete:hover {
+            background: var(--danger-light);
+            color: var(--danger);
+            border-color: #FECACA;
+        }
+
+        .preset-card-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            line-height: 1.4;
+            min-height: 36px;
+        }
+
+        .preset-card-url {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 7px 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .preset-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 9px;
+            border-radius: 100px;
+            background: var(--primary-light);
+            color: var(--primary);
+            border: 1px solid #BFDBFE;
+            text-transform: capitalize;
+        }
+
+        /* EMPTY STATE */
+        .empty-state {
+            text-align: center;
+            padding: 60px 24px;
+            background: var(--surface);
+            border: 2px dashed var(--border-strong);
+            border-radius: var(--radius-lg);
+            display: none;
+        }
+
+        .empty-state.show {
+            display: block;
+        }
+
+        .empty-icon {
+            font-size: 40px;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+        }
+
+        .empty-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .empty-sub {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* SETTINGS MODAL */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 0;
+            width: 100%;
+            max-width: 460px;
+            box-shadow: var(--shadow-lg);
+            animation: modalIn 0.2s ease;
+        }
+
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(-8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .modal-close {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            transition: all 0.15s;
+        }
+
+        .modal-close:hover {
+            background: var(--danger-light);
+            color: var(--danger);
+            border-color: #FECACA;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .tg-box {
+            background: #EFF6FF;
+            border: 1.5px solid #BFDBFE;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .tg-box-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+
+        .tg-box-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .modal-input {
+            width: 100%;
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            padding: 9px 12px;
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+            outline: none;
+            transition: all 0.15s;
+            margin-bottom: 8px;
+        }
+
+        .modal-input:focus {
+            border-color: var(--primary);
+            background: var(--surface);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, .08);
+        }
+
+        .modal-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .modal-input-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .btn-save {
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 9px;
+            padding: 9px 20px;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, .25);
+        }
+
+        .btn-save:hover {
+            background: var(--primary-dark);
+        }
+
+        /* TOAST */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 200;
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            box-shadow: var(--shadow-lg);
+            transition: all 0.3s;
+            transform: translateY(80px);
+            opacity: 0;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast .check-icon {
+            font-size: 15px;
+            color: var(--success);
+        }
+
+        .toast .err-icon {
+            font-size: 15px;
+            color: var(--danger);
+        }
+
+        /* STICKY SCAN PANEL */
+        .scan-panel-wrap {
+            position: sticky;
+            top: 88px;
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .scan-panel-wrap {
+                position: static;
+            }
         }
     </style>
 </head>
 
-<body class="bg-slate-900 text-slate-200 min-h-screen font-sans antialiased selection:bg-blue-500 selection:text-white">
-
+<body>
     <!-- Navbar -->
-    <nav class="sticky top-0 z-50 w-full glass border-b border-slate-700/50 bg-slate-900/80 backdrop-blur-md">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <!-- Logo -->
-                <div class="flex items-center gap-3">
-                    <div class="bg-blue-500/10 p-2 rounded-lg">
-                        <i class="fa-solid fa-chart-line text-blue-500 text-xl"></i>
-                    </div>
-                    <span class="font-bold text-xl tracking-tight text-white">Chartink<span
-                            class="text-blue-500">Scraper</span></span>
+    <nav>
+        <div class="nav-inner">
+            <a href="/" class="logo">
+                <div class="logo-icon"><i class="fa-solid fa-chart-line"></i></div>
+                <span class="logo-text">Chartink<span>Scraper</span></span>
+            </a>
+            <div class="nav-right">
+                <button class="btn-settings" onclick="toggleSettings()" title="Settings">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+                <div class="nav-user">
+                    <div class="user-avatar">{{ user.username[0] | upper }}</div>
+                    <span class="user-name">{{ user.username }}</span>
                 </div>
-
-                <!-- Right Side Actions -->
-                <div class="flex items-center gap-4">
-                    <button onclick="toggleSettings()"
-                        class="group flex items-center gap-2 text-slate-400 hover:text-white transition-all px-3 py-1.5 rounded-lg hover:bg-slate-800"
-                        title="Settings">
-                        <i class="fa-solid fa-gear group-hover:rotate-90 transition-transform duration-500"></i>
-                    </button>
-
-                    <div class="h-6 w-px bg-slate-700"></div>
-
-                    <div class="flex items-center gap-3">
-                        <div
-                            class="bg-slate-800 h-8 w-8 rounded-full flex items-center justify-center border border-slate-700 text-xs font-bold text-blue-400">
-                            {{ user.username[0] | upper }}
-                        </div>
-                        <span class="hidden sm:block text-sm font-medium text-slate-300">{{ user.username }}</span>
-                    </div>
-
-                    <a href="/logout"
-                        class="bg-red-500/10 hover:bg-red-500/20 text-red-500 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors">
-                        <i class="fa-solid fa-right-from-bracket sm:mr-1"></i> <span
-                            class="hidden sm:inline">Logout</span>
-                    </a>
-                </div>
+                <a href="/logout" class="btn-logout">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span>Logout</span>
+                </a>
             </div>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <main class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        <!-- Grid Layout -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-            <!-- Left Column: New Scan Form (Takes 4 columns on large screens) -->
-            <div class="lg:col-span-4">
-                <div class="glass bg-slate-800/50 rounded-2xl p-6 shadow-xl border border-slate-700/50 sticky top-24">
-                    <div class="flex items-center gap-3 mb-6 border-b border-slate-700/50 pb-4">
-                        <div class="bg-emerald-500/10 p-2 rounded-lg">
-                            <i class="fa-solid fa-play text-emerald-500"></i>
-                        </div>
-                        <h2 class="text-lg font-bold text-white">New Scan</h2>
+    <main>
+        <div class="layout">
+            <!-- LEFT: New Scan Panel -->
+            <div class="scan-panel-wrap">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-header-icon green"><i class="fa-solid fa-play"></i></div>
+                        <span class="card-title">New Scan</span>
                     </div>
-
-                    <form id="scanForm" class="space-y-5">
-                        <div class="space-y-1.5">
-                            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Screener
-                                URL</label>
-                            <div class="relative group">
-                                <span
-                                    class="absolute left-3 top-3.5 text-slate-500 group-focus-within:text-blue-500 transition-colors">
-                                    <i class="fa-solid fa-link"></i>
-                                </span>
-                                <input type="url" id="screener_url" required
-                                    class="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder-slate-600"
-                                    placeholder="https://chartink.com/screener/...">
+                    <div class="card-body">
+                        <form id="scanForm">
+                            <!-- URL -->
+                            <div class="form-group">
+                                <label class="form-label">Screener URL</label>
+                                <div class="input-wrap">
+                                    <i class="fa-solid fa-link input-icon"></i>
+                                    <input type="url" id="screener_url" required class="form-input"
+                                        placeholder="https://chartink.com/screener/...">
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-1.5">
-                                <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Period
-                                    (Interval)</label>
-                                <div class="relative">
-                                    <select id="period"
-                                        class="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 px-4 text-sm text-slate-200 focus:border-blue-500 outline-none appearance-none cursor-pointer">
+                            <!-- Period + Range -->
+                            <div class="grid-2" style="margin-bottom:16px;">
+                                <div>
+                                    <label class="form-label">Period (Duration)</label>
+                                    <select id="range" class="form-select">
+                                        <option value="1 day">1 Day</option>
+                                        <option value="2 days">2 Days</option>
+                                        <option value="3 days">3 Days</option>
+                                        <option value="5 days">5 Days</option>
+                                        <option value="10 days">10 Days</option>
+                                        <option value="1 month">1 Month</option>
+                                        <option value="2 months">2 Months</option>
+                                        <option value="3 months">3 Months</option>
+                                        <option value="4 months">4 Months</option>
+                                        <option value="6 months">6 Months</option>
+                                        <option value="9 months">9 Months</option>
+                                        <option value="1 year" selected>1 Year</option>
+                                        <option value="2 years">2 Years</option>
+                                        <option value="3 years">3 Years</option>
+                                        <option value="5 years">5 Years</option>
+                                        <option value="8 years">8 Years</option>
+                                        <option value="all data">All Data</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="form-label">Range (Interval)</label>
+                                    <select id="period" class="form-select">
                                         <optgroup label="Standard">
                                             <option value="daily">Daily</option>
-                                            <option value="weekly">Weekly</option>
+                                            <option value="weekly" selected>Weekly</option>
                                             <option value="monthly">Monthly</option>
                                         </optgroup>
                                         <optgroup label="Intraday">
@@ -163,254 +1191,182 @@
                                             <option value="240 minute">4 Hour</option>
                                         </optgroup>
                                     </select>
-                                    <span class="absolute right-3 top-3.5 text-slate-500 pointer-events-none">
-                                        <i class="fa-solid fa-chevron-down text-xs"></i>
-                                    </span>
                                 </div>
                             </div>
-                            <div class="space-y-1.5">
-                                <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Range
-                                    (Duration)</label>
-                                <div class="relative">
-                                    <select id="range"
-                                        class="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 px-4 text-sm text-slate-200 focus:border-blue-500 outline-none appearance-none cursor-pointer">
-                                        <option value="1 day">1 Day</option>
-                                        <option value="2 days">2 Days</option>
-                                        <option value="3 days">3 Days</option>
-                                        <option value="5 days">5 Days</option>
-                                        <option value="10 days">10 Days</option>
-                                        <option value="1 month">1 Month</option>
-                                        <option value="2 months">2 Months</option>
-                                        <option value="3 months">3 Months</option>
-                                        <option value="4 months">4 Months</option>
-                                        <option value="6 months">6 Months</option>
-                                        <option value="9 months">9 Months</option>
-                                        <option value="1 year" selected>1 Year</option>
-                                        <option value="2 years">2 Years</option>
-                                        <option value="3 years">3 Years</option>
-                                        <option value="5 years">5 Years</option>
-                                        <option value="8 years">8 Years</option>
-                                        <option value="all data">All Data</option>
-                                    </select>
-                                    <span class="absolute right-3 top-3.5 text-slate-500 pointer-events-none">
-                                        <i class="fa-solid fa-chevron-down text-xs"></i>
-                                    </span>
+
+                            <!-- Moving Averages -->
+                            <div class="ma-section">
+                                <div class="ma-toggle-row">
+                                    <input type="checkbox" id="enable_ma" onchange="toggleMASection()">
+                                    <label for="enable_ma" class="toggle-label">Enable Moving Averages</label>
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- Moving Averages Section -->
-                        <div class="bg-slate-900/40 rounded-xl p-3 border border-slate-700/50">
-                            <div class="flex items-center gap-2 mb-2">
-                                <input type="checkbox" id="enable_ma" onchange="toggleMASection()"
-                                    class="w-4 h-4 rounded bg-slate-800 border-slate-600 text-blue-600 focus:ring-blue-500 cursor-pointer">
-                                <label for="enable_ma"
-                                    class="text-xs font-semibold text-slate-400 uppercase tracking-wider select-none cursor-pointer">Enable
-                                    Moving Averages</label>
-                            </div>
-
-                            <div id="ma_config_container"
-                                class="hidden space-y-3 mt-3 border-t border-slate-700/50 pt-3">
-                                {% for i in range(1, 6) %}
-                                <div class="grid grid-cols-12 gap-2 items-center text-sm">
-                                    <div class="col-span-12 sm:col-span-3 flex items-center gap-2">
-                                        <input type="checkbox" id="ma_{{i}}_enabled"
-                                            class="w-3 h-3 rounded bg-slate-800 border-slate-600 text-blue-600">
-                                        <span class="text-slate-300 text-xs">MA {{i}}</span>
-                                    </div>
-                                    <div class="col-span-4 sm:col-span-3">
-                                        <select id="ma_{{i}}_field"
-                                            class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs outline-none focus:border-blue-500">
+                                <div class="ma-rows" id="ma_config_container">
+                                    {% for i in range(1, 6) %}
+                                    <div class="ma-row">
+                                        <div class="ma-label">
+                                            <input type="checkbox" id="ma_{{i}}_enabled"
+                                                style="width:14px;height:14px;accent-color:var(--primary);">
+                                            <span>MA {{i}}</span>
+                                        </div>
+                                        <select id="ma_{{i}}_field" class="ma-select">
                                             <option value="Close">Close</option>
                                             <option value="Open">Open</option>
                                             <option value="High">High</option>
                                             <option value="Low">Low</option>
                                         </select>
-                                    </div>
-                                    <div class="col-span-5 sm:col-span-3">
-                                        <select id="ma_{{i}}_type"
-                                            class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs outline-none focus:border-blue-500">
-                                            <option value="Simple">Simple</option>
-                                            <option value="Exponential">Exponential</option>
-                                            <option value="Weighted">Weighted</option>
-                                            <option value="Triangular">Triangular</option>
+                                        <select id="ma_{{i}}_type" class="ma-select">
+                                            <option value="Simple">SMA</option>
+                                            <option value="Exponential">EMA</option>
+                                            <option value="Weighted">WMA</option>
+                                            <option value="Triangular">TMA</option>
                                         </select>
-                                    </div>
-                                    <div class="col-span-3 sm:col-span-3">
                                         <input type="number" id="ma_{{i}}_period" value="{{ 20 + i*5 }}"
-                                            class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-center outline-none focus:border-blue-500"
-                                            placeholder="20">
+                                            class="ma-input" placeholder="20">
                                     </div>
+                                    {% endfor %}
                                 </div>
-                                {% endfor %}
                             </div>
-                        </div>
 
-                        <div class="bg-slate-900/40 rounded-xl p-3 border border-slate-700/50">
-                            <div class="flex items-center gap-3">
-                                <div class="relative flex items-center">
+                            <!-- Save Preset -->
+                            <div class="preset-save-box">
+                                <div class="preset-toggle-row">
                                     <input type="checkbox" id="save_preset_check"
-                                        class="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-slate-600 bg-slate-800 transition-all checked:border-blue-500 checked:bg-blue-500">
-                                    <span
-                                        class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100">
-                                        <i class="fa-solid fa-check text-xs"></i>
-                                    </span>
+                                        style="width:15px;height:15px;accent-color:var(--primary);">
+                                    <label for="save_preset_check" class="toggle-label" style="cursor:pointer;">Save to
+                                        Presets</label>
                                 </div>
-                                <label for="save_preset_check"
-                                    class="text-sm font-medium text-slate-300 cursor-pointer select-none">Save to
-                                    presets</label>
+                                <div class="preset-fields" id="preset_fields">
+                                    <input type="text" id="preset_title" class="preset-input"
+                                        placeholder="Preset title (e.g. My Breakout Scan)" required>
+                                    <input type="text" id="preset_desc" class="preset-input"
+                                        placeholder="Description (optional)">
+                                </div>
                             </div>
 
-                            <!-- Hidden fields for saving preset -->
-                            <div id="preset_fields" class="hidden space-y-3 mt-3 pt-3 border-t border-slate-700/50">
-                                <input type="text" id="preset_title"
-                                    class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-blue-500 outline-none"
-                                    placeholder="Preset Title (e.g. My Breakout Scan)">
-                                <input type="text" id="preset_desc"
-                                    class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-blue-500 outline-none"
-                                    placeholder="Description (Optional)">
-                            </div>
-                        </div>
-
-                        <button type="submit"
-                            class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98] mt-2 flex justify-center items-center gap-2 group">
-                            <span>Start Scraping</span>
-                            <i class="fa-solid fa-rocket group-hover:translate-x-1 transition-transform"></i>
-                        </button>
-                    </form>
-
-                    <!-- Status Display -->
-                    <div id="statusContainer"
-                        class="hidden mt-6 bg-slate-900/80 rounded-xl p-5 border border-slate-700 relative overflow-hidden">
-                        <!-- Progress Glow -->
-                        <div
-                            class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-50">
-                        </div>
-
-                        <div class="flex justify-between items-end mb-2">
-                            <span class="text-sm font-medium text-blue-400 animate-pulse"
-                                id="statusText">Initializing...</span>
-                            <span class="text-2xl font-bold text-white tracking-tighter" id="progressPercent">0%</span>
-                        </div>
-
-                        <div class="w-full bg-slate-700/50 rounded-full h-2 overflow-hidden mb-3">
-                            <div id="progressBar"
-                                class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(59,130,246,0.5)]"
-                                style="width: 0%"></div>
-                        </div>
-
-                        <div
-                            class="flex items-center gap-2 text-xs text-slate-500 truncate bg-slate-800/50 p-2 rounded-lg border border-slate-700/30">
-                            <i class="fa-solid fa-building text-slate-600"></i>
-                            <span id="currentCompany" class="truncate">Waiting to start...</span>
-                        </div>
-
-                        <div class="flex gap-3 mt-4">
-                            <button id="stopBtn" onclick="stopJob()"
-                                class="hidden w-full bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/50 py-3 rounded-lg text-sm font-bold transition-all active:scale-[0.98]">
-                                <i class="fa-solid fa-stop mr-2"></i> Stop Scan
+                            <button type="submit" class="btn-primary" id="startBtn">
+                                <i class="fa-solid fa-rocket"></i>
+                                Start Scraping
                             </button>
+                        </form>
 
-                            <a id="downloadBtn" href="#"
-                                class="hidden flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg text-sm font-bold transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98]">
-                                <i class="fa-solid fa-file-pdf text-lg"></i>
-                                <span>Download Report</span>
-                            </a>
+                        <!-- Status -->
+                        <div class="status-box" id="statusContainer">
+                            <div class="status-top">
+                                <span class="status-label" id="statusText">Initializing...</span>
+                                <span class="status-percent" id="progressPercent">0%</span>
+                            </div>
+                            <div class="progress-track">
+                                <div class="progress-fill" id="progressBar"></div>
+                            </div>
+                            <div class="status-company">
+                                <i class="fa-solid fa-building" style="color:var(--text-muted);font-size:11px;"></i>
+                                <span id="currentCompany"
+                                    style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Waiting
+                                    to start...</span>
+                            </div>
+                            <div class="status-actions">
+                                <button class="btn-stop" id="stopBtn" onclick="stopJob()">
+                                    <i class="fa-solid fa-stop"></i> Stop Scan
+                                </button>
+                                <a href="#" class="btn-download" id="downloadBtn">
+                                    <i class="fa-solid fa-file-pdf"></i> Download PDF
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Right Column: Saved Presets (Takes 8 columns on large screens) -->
-            <div class="lg:col-span-8">
-                <div class="flex justify-between items-end mb-6 border-b border-slate-800 pb-4">
+            <!-- RIGHT: Saved Presets -->
+            <div>
+                <div class="panel-header">
                     <div>
-                        <h2 class="text-2xl font-bold text-white flex items-center gap-3">
-                            <i
-                                class="fa-solid fa-bookmark text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]"></i>
+                        <h1 class="panel-title">
+                            <i class="fa-solid fa-bookmark" style="color:var(--warning);"></i>
                             Saved Scrapers
-                        </h2>
-                        <p class="text-slate-400 text-sm mt-1 ml-1">Access your frequently used Chartink scans</p>
+                        </h1>
+                        <p class="panel-subtitle">Your frequently used Chartink screeners</p>
                     </div>
-                    <button onclick="loadPresets()"
-                        class="flex items-center gap-2 text-sm text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg transition-colors border border-slate-700">
-                        <i class="fa-solid fa-rotate-right"></i> <span>Refresh</span>
+                    <button class="btn-refresh" onclick="loadPresets()">
+                        <i class="fa-solid fa-rotate-right"></i> Refresh
                     </button>
                 </div>
-
-                <div id="presetsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Preset Cards injected via JS -->
-                </div>
-
-                <div id="noPresetsMsg"
-                    class="hidden flex flex-col items-center justify-center py-20 bg-slate-800/30 rounded-2xl border border-slate-800 text-slate-500 border-dashed border-2">
-                    <div class="bg-slate-800 p-4 rounded-full mb-4">
-                        <i class="fa-regular fa-folder-open text-3xl opacity-50"></i>
-                    </div>
-                    <p class="font-medium text-lg text-slate-400">No saved presets yet</p>
-                    <p class="text-sm">Run a scan and check "Save to presets" to add one here.</p>
+                <div class="presets-grid" id="presetsGrid"></div>
+                <div class="empty-state" id="noPresetsMsg">
+                    <div class="empty-icon"><i class="fa-regular fa-folder-open"></i></div>
+                    <div class="empty-title">No saved presets yet</div>
+                    <div class="empty-sub">Run a scan and check "Save to presets" to add one here.</div>
                 </div>
             </div>
         </div>
     </main>
 
     <!-- Settings Modal -->
-    <div id="settingsModal"
-        class="fixed inset-0 z-[100] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center">
-        <div class="glass bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl p-6 shadow-2xl transform scale-95 transition-transform"
-            id="settingsModalContent">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold text-white">Settings</h3>
-                <button onclick="toggleSettings()" class="text-slate-400 hover:text-white"><i
-                        class="fa-solid fa-xmark text-xl"></i></button>
+    <div class="modal-overlay" id="settingsModal" onclick="handleModalClick(event)">
+        <div class="modal" id="settingsModalContent">
+            <div class="modal-header">
+                <span class="modal-title"><i class="fa-solid fa-gear"
+                        style="color:var(--primary);margin-right:6px;"></i>Settings</span>
+                <button class="modal-close" onclick="toggleSettings()"><i class="fa-solid fa-xmark"></i></button>
             </div>
-
-            <form id="settingsForm" class="space-y-4">
-                <div class="bg-blue-500/10 border border-blue-500/20 p-4 rounded-lg">
-                    <h4 class="font-semibold text-blue-400 mb-2 flex items-center gap-2">
-                        <i class="fa-brands fa-telegram"></i> Telegram Configuration
-                    </h4>
-                    <p class="text-xs text-slate-400 mb-4">
-                        Configure your bot to receive PDFs automatically.
-                    </p>
-
-                    <div class="space-y-3">
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Bot Token</label>
-                            <input type="text" id="tg_bot_token" value="{{ user.telegram_bot_token or '' }}"
-                                class="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none"
-                                placeholder="123456:ABC-def...">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Chat ID</label>
-                            <input type="text" id="tg_chat_id" value="{{ user.telegram_chat_id or '' }}"
-                                class="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white focus:border-blue-500 outline-none"
-                                placeholder="123456789">
-                        </div>
+            <form id="settingsForm">
+                <div class="modal-body">
+                    <div class="tg-box">
+                        <div class="tg-box-title"><i class="fa-brands fa-telegram"></i> Telegram Notifications</div>
+                        <div class="tg-box-desc">Receive generated PDFs directly in your Telegram chat.</div>
+                        <label class="modal-input-label">Bot Token</label>
+                        <input type="text" id="tg_bot_token" value="{{ user.telegram_bot_token or '' }}"
+                            class="modal-input" placeholder="123456:ABC-def...">
+                        <label class="modal-input-label">Chat ID</label>
+                        <input type="text" id="tg_chat_id" value="{{ user.telegram_chat_id or '' }}" class="modal-input"
+                            placeholder="123456789">
                     </div>
                 </div>
-
-                <div class="flex justify-end pt-4">
-                    <button type="submit"
-                        class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-semibold transition-colors">
-                        Save Settings
-                    </button>
+                <div class="modal-footer">
+                    <button type="submit" class="btn-save">Save Settings</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Toast Notification -->
-    <div id="toast"
-        class="fixed bottom-5 right-5 z-[110] transform translate-y-20 opacity-0 transition-all duration-300">
-        <div
-            class="bg-slate-800 border border-slate-700 text-white px-6 py-3 rounded-lg shadow-2xl flex items-center gap-3">
-            <i class="fa-solid fa-check-circle text-emerald-500"></i>
-            <span id="toastMsg">Action successful</span>
-        </div>
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <i class="fa-solid fa-circle-check check-icon" id="toastIcon"></i>
+        <span id="toastMsg">Action successful</span>
     </div>
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        // MA toggle
+        function toggleMASection() {
+            const c = document.getElementById('ma_config_container');
+            c.classList.toggle('open', document.getElementById('enable_ma').checked);
+        }
+        // Preset toggle
+        document.getElementById('save_preset_check').addEventListener('change', function () {
+            const f = document.getElementById('preset_fields');
+            f.classList.toggle('open', this.checked);
+            document.getElementById('preset_title').required = this.checked;
+        });
+        // Modal click outside
+        function handleModalClick(e) {
+            if (e.target === document.getElementById('settingsModal')) toggleSettings();
+        }
+        // Settings modal
+        function toggleSettings() {
+            const m = document.getElementById('settingsModal');
+            m.classList.toggle('show');
+        }
+        // Toast
+        function showToast(msg, isError = false) {
+            const t = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            document.getElementById('toastMsg').textContent = msg;
+            icon.className = isError ? 'fa-solid fa-circle-exclamation err-icon' : 'fa-solid fa-circle-check check-icon';
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+    </script>
 </body>
 
 </html>

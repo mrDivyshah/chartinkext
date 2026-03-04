@@ -1,7 +1,7 @@
 FROM python:3.10-slim
 
 # Install system dependencies, including Chrome and its deps
-# Install system dependencies (wget, gnupg, unzip, curl)
+# Install system dependencies (wget, gnupg, unzip, curl) pwd Apple321@
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \

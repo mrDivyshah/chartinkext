@@ -11,3 +11,5 @@ Flask-SQLAlchemy
 Flask-Login
 werkzeug
 Flask-Mail
+PyMySQL
+cryptography

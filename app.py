@@ -34,7 +34,25 @@ from flask_mail import Mail, Message # Added
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-dev-key-change-this')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///chartink_app.db'
+
+# --- Database Configuration ---
+# On PythonAnywhere: uses MySQL (free accounts can only connect from within PA)
+# Locally: falls back to SQLite for development
+if 'PYTHONANYWHERE_DOMAIN' in os.environ:
+    # PythonAnywhere MySQL — password '@' must be URL-encoded as '%40'
+    _db_url = os.environ.get(
+        'DATABASE_URL',
+        'mysql+pymysql://divy123:Apple321%40@divy123.mysql.pythonanywhere-services.com/divy123$default'
+    )
+else:
+    # Local development — use SQLite
+    _db_url = os.environ.get('DATABASE_URL', 'sqlite:///chartink_app.db')
+
+app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_recycle': 280,   # Recycle connections before MySQL's 5-min timeout
+    'pool_pre_ping': True, # Test connection health before using from pool
+}
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Mail Configuration
@@ -233,7 +251,7 @@ def get_image_from_link(driver, url, period, s_range, moving_averages):
             "1 day": "1", "2 days": "2", "3 days": "3", "5 days": "5", "10 days": "10",
             "1 month": "22", "2 months": "44", "3 months": "66", "4 months": "91",
             "6 months": "121", "9 months": "198", "1 year": "252", "2 years": "504",
-            "3 years": "756", "5 years": "1008", "8 years": "1764", "All Data": "5000"
+            "3 years": "756", "5 years": "1008", "8 years": "1764", "all data": "5000"
         }
         
         d_map = {

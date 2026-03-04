@@ -156,7 +156,8 @@ def web_driver():
             print(f"Selenium Manager failed: {e}")
 
         # 3️⃣  Try system chromedriver as last resort
-        for cd in ["/usr/bin/chromedriver", "/usr/local/bin/chromedriver"]:
+        for cd in ["/usr/bin/chromedriver", "/usr/local/bin/chromedriver",
+                   os.path.expanduser("~/.local/bin/chromedriver")]:
             if os.path.exists(cd):
                 try:
                     driver = webdriver.Chrome(service=Service(cd), options=options)

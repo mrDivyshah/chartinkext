@@ -1,6 +1,7 @@
 Flask
 selenium
 webdriver-manager
+undetected-chromedriver
 Pillow
 reportlab
 beautifulsoup4

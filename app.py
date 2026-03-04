@@ -109,56 +109,81 @@ def load_user(user_id):
 
 def web_driver():
     options = webdriver.ChromeOptions()
-    options.page_load_strategy = 'eager' # Don't wait for full page load (images, css)
-    options.add_argument("--verbose")
+    options.page_load_strategy = 'eager'
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-gpu')
     options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
     options.add_argument('--disable-blink-features=AutomationControlled')
+    options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36')
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
 
-    # Check for PythonAnywhere environment
+    # ── PythonAnywhere environment ──────────────────────────────────
     if 'PYTHONANYWHERE_DOMAIN' in os.environ:
-        options.add_argument('--headless')
-        
-        # Try finding the binary
-        paths = ["/usr/bin/chromium", "/usr/bin/chromium-browser"]
-        found_bin = None
-        for p in paths:
+        options.add_argument('--headless=new')
+        options.add_argument('--window-size=1920,1080')
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-software-rasterizer')
+
+        # Locate system Chromium binary
+        for p in ["/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome"]:
             if os.path.exists(p):
-                found_bin = p
+                options.binary_location = p
                 break
-        
-        if found_bin:
-            options.binary_location = found_bin
-        
+
+        # 1️⃣  Try undetected-chromedriver (auto version-matching)
         try:
-            service = Service("/usr/bin/chromedriver")
-            driver = webdriver.Chrome(service=service, options=options)
+            import undetected_chromedriver as uc
+            uc_options = uc.ChromeOptions()
+            for arg in [
+                '--headless=new', '--no-sandbox', '--disable-gpu',
+                '--disable-dev-shm-usage', '--window-size=1920,1080',
+                '--disable-extensions', '--disable-software-rasterizer'
+            ]:
+                uc_options.add_argument(arg)
+            driver = uc.Chrome(options=uc_options, use_subprocess=False)
+            print("PythonAnywhere: using undetected_chromedriver")
             return driver
         except Exception as e:
-            print(f"Failed to use system chromedriver: {e}")
-            # Do NOT pass here, return None or let it fail, 
-            # because fallback to webdriver_manager will definitely fail on PA
-            pass
+            print(f"undetected_chromedriver failed: {e}")
 
-    # Docker / Local Headless
+        # 2️⃣  Let Selenium Manager auto-download the correct driver (Selenium >= 4.6)
+        try:
+            driver = webdriver.Chrome(options=options)  # No Service() = Selenium Manager
+            print("PythonAnywhere: using Selenium Manager auto-download")
+            return driver
+        except Exception as e:
+            print(f"Selenium Manager failed: {e}")
+
+        # 3️⃣  Try system chromedriver as last resort
+        for cd in ["/usr/bin/chromedriver", "/usr/local/bin/chromedriver"]:
+            if os.path.exists(cd):
+                try:
+                    driver = webdriver.Chrome(service=Service(cd), options=options)
+                    print(f"PythonAnywhere: using system chromedriver at {cd}")
+                    return driver
+                except Exception as e:
+                    print(f"System chromedriver {cd} failed: {e}")
+
+        raise RuntimeError("All ChromeDriver strategies failed on PythonAnywhere")
+
+    # ── Docker / Local Headless ─────────────────────────────────────
     if os.path.exists('/.dockerenv') or os.environ.get('HEADLESS', 'false').lower() == 'true':
         options.add_argument('--headless=new')
         options.add_argument('--window-size=1920,1080')
-        options.add_argument('--remote-debugging-port=9222')
         options.add_argument('--disable-extensions')
         print("Running in Headless mode (Docker/Env detected)")
 
+    # ── Local development ───────────────────────────────────────────
     try:
+        # webdriver-manager for local dev
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=options)
         return driver
     except Exception as e:
-        print(f"Error setting up driver: {e}")
-        raise e
+        print(f"webdriver-manager failed ({e}), trying Selenium Manager...")
+        driver = webdriver.Chrome(options=options)  # Selenium Manager fallback
+        return driver
 
 async def send_telegram_pdf(token, chat_id, pdf_bytes, filename):
     try:

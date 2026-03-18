@@ -9,6 +9,7 @@ import requests
 from io import BytesIO
 from datetime import datetime
 import asyncio
+from urllib.parse import urlparse, parse_qs
 
 from flask import Flask, render_template, request, send_file, jsonify, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -208,11 +209,24 @@ def get_url_and_index(driver):
             page_links = []
             for link in links:
                 href = link.get('href')
+
+                # --- Old format: /fundamentals/SYMBOL.html ---
                 if 'fundamentals' in href:
                     href = href.replace('fundamentals', 'stocks')
                     full_link = f"https://chartink.com{href}"
                     if full_link not in results and full_link not in page_links:
-                         page_links.append(full_link)
+                        page_links.append(full_link)
+
+                # --- New format: /stocks-new?...&symbol=SYMBOL ---
+                elif 'stocks-new' in href and 'symbol=' in href:
+                    parsed = urlparse(href)
+                    qs = parse_qs(parsed.query)
+                    symbol_list = qs.get('symbol', [])
+                    if symbol_list:
+                        symbol = symbol_list[0]
+                        full_link = f"https://chartink.com/stocks/{symbol}.html"
+                        if full_link not in results and full_link not in page_links:
+                            page_links.append(full_link)
             
             # Check for empty scrape on subsequent pages
             if not page_links and results:
